@@ -1,6 +1,6 @@
 accessWidener   v1  official
 
-# Verified entry-by-entry against the real MC 26.2 client jar (javap), 2026-07-21.
+# Verified entry-by-entry against the real MC 26.1 client jar (javap), 2026-08-03.
 # Keep in sync with common/src/main/resources/storagedrawers.accesswidener — this file
 # is the same set minus BlockModel.getElements (which was common-only).
 # An entry naming a member that no longer exists is a HARD mod-load failure.
@@ -17,6 +17,7 @@ accessible field net/minecraft/world/item/crafting/ShapedRecipe pattern Lnet/min
 accessible field net/minecraft/world/item/crafting/ShapedRecipe result Lnet/minecraft/world/item/ItemStackTemplate;
 accessible field net/minecraft/world/ticks/LevelTicks allContainers Lit/unimi/dsi/fastutil/longs/Long2ObjectMap;
 
-# guiRenderState moved off GameRenderer; it now lives on Gui (reachable via Minecraft.gui).
-accessible field net/minecraft/client/gui/Gui guiRenderState Lnet/minecraft/client/renderer/state/gui/GuiRenderState;
+# 26.1: GuiRenderState lives as a private field on GuiGraphicsExtractor itself
+# (in 26.2 it moves onto Gui). StorageGuiGraphics reads it off the wrapped extractor.
+accessible field net/minecraft/client/gui/GuiGraphicsExtractor guiRenderState Lnet/minecraft/client/renderer/state/gui/GuiRenderState;
 accessible field com/mojang/blaze3d/vertex/PoseStack$Pose trustedNormals Z

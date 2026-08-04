@@ -16,7 +16,13 @@ dependencies {
     implementation("net.fabricmc:fabric-loader:${Versions.fabricLoader}")
     implementation("net.fabricmc.fabric-api:fabric-api:${Versions.fabric}")
 
-    compileOnly("fuzs.forgeconfigapiport:forgeconfigapiport-fabric:26.2.1")
+    compileOnly("fuzs.forgeconfigapiport:forgeconfigapiport-fabric:26.1.5") {
+        // FCAP 26.1.5 is built against MC 26.1.2 and pulls fabric-api 0.149.1+26.1.2,
+        // which Gradle would promote over our 0.145.1+26.1 on the compile classpath --
+        // Loom then puts BOTH module sets on the dev launch classpath and the client
+        // crashes on cross-version fabric-api internals. We only need FCAP's own classes.
+        exclude(group = "net.fabricmc.fabric-api")
+    }
 
     //compileOnlyApi("mezz.jei:jei-${Versions.minecraft}-fabric-api:19.8.2.99")
     //runtimeOnly("mezz.jei:jei-${Versions.minecraft}-fabric:19.8.2.99")

@@ -12,7 +12,8 @@ import subprocess
 import sys
 import zipfile
 
-JAR = "/Users/bee/.gradle/caches/fabric-loom/26.2/minecraft-client.jar"
+import os
+JAR = os.path.expanduser(f"~/.gradle/caches/fabric-loom/{os.environ.get('MCVER', '26.1')}/minecraft-client.jar")
 AW_FILES = sys.argv[1:]
 
 if not AW_FILES:
