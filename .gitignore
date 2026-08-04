@@ -33,3 +33,9 @@ run/
 /.project
 *.launch
 runs/
+
+# Kept local-only, not published to this fork
+MIGRATION.md
+CHANGELOG.md
+CHANGELOG.last.md
+README.md

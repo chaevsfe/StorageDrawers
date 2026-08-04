@@ -42,6 +42,9 @@ loom {
     }
 }
 
+// CHANGELOG.last.md is kept local-only (not committed); guard so a fresh clone still builds.
+val lastChangelog = File(rootDir, "CHANGELOG.last.md").takeIf { it.exists() }?.readText() ?: ""
+
 tasks.create<TaskPublishCurseForge>("publishCurseForge") {
     dependsOn(tasks.jar)
 
@@ -51,7 +54,7 @@ tasks.create<TaskPublishCurseForge>("publishCurseForge") {
     val mainFile = upload(Properties.curseProjectId, tasks.jar.get().archiveFile)
     mainFile.displayName = "${Properties.name}-${Versions.minecraft}-fabric-$version"
     mainFile.changelogType = "markdown"
-    mainFile.changelog = File(rootDir, "CHANGELOG.last.md").readText()
+    mainFile.changelog = lastChangelog
     mainFile.releaseType = Properties.distRelease
     Properties.distGameVersions.split(',').forEach { v -> mainFile.addGameVersion(v) }
     mainFile.addModLoader("Fabric")
@@ -62,7 +65,7 @@ tasks.create<TaskPublishCurseForge>("publishCurseForge") {
 modrinth {
     token.set(System.getenv("MODRINTH_API_KEY") ?: "debug_key")
     projectId.set(Properties.modrinthProjectId)
-    changelog.set(File(rootDir, "CHANGELOG.last.md").readText())
+    changelog.set(lastChangelog)
     versionName.set("${Properties.name}-${Versions.minecraft}-fabric-$version")
     versionNumber.set("${Versions.minecraft}-${Versions.mod}")
     versionType.set(Properties.distRelease)

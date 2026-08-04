@@ -1,3 +1,0 @@
-- Minecraft 26.1 build, identical in features to 26.2-19.1.3
-- Stored items migrate through vanilla's own data fixer, covering worlds from any version back to 1.18.2
-- Items that cannot be read at all are preserved instead of deleted, and reappear once something can read them again
