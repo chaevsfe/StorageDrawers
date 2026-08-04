@@ -11,10 +11,14 @@ import com.jaquadro.minecraft.storagedrawers.inventory.DrawerScreen;
 import com.jaquadro.minecraft.storagedrawers.inventory.FramingTableScreen;
 import com.jaquadro.minecraft.storagedrawers.inventory.tooltip.DetachedDrawerTooltip;
 import com.jaquadro.minecraft.storagedrawers.inventory.tooltip.KeyringTooltip;
+import com.jaquadro.minecraft.storagedrawers.config.ModClientConfig;
+import com.jaquadro.minecraft.storagedrawers.network.PlayerBoolConfigMessage;
+import com.texelsaurus.minecraft.chameleon.ChameleonServices;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.fabricmc.fabric.api.client.model.loading.v1.ModelLoadingPlugin;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.ClientTooltipComponentCallback;
 import net.minecraft.client.gui.screens.MenuScreens;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderers;
@@ -40,6 +44,17 @@ public class StorageDrawersClient implements ClientModInitializer
         MenuScreens.register(ModContainers.DRAWER_CONTAINER_COMP_2.get(), DrawerScreen.Compacting2::new);
         MenuScreens.register(ModContainers.DRAWER_CONTAINER_COMP_3.get(), DrawerScreen.Compacting3::new);
         MenuScreens.register(ModContainers.FRAMING_TABLE.get(), FramingTableScreen::new);
+
+        // Forge/NeoForge send these on entity join; without them the server keeps the
+        // default invertShift/invertClick and executes the opposite of what the client
+        // predicts for shift/click interactions.
+        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> client.execute(() -> {
+            if (client.player == null)
+                return;
+            String uuid = client.player.getUUID().toString();
+            ChameleonServices.NETWORK.sendToServer(new PlayerBoolConfigMessage(uuid, "invertShift", ModClientConfig.INSTANCE.GENERAL.invertShift.get()));
+            ChameleonServices.NETWORK.sendToServer(new PlayerBoolConfigMessage(uuid, "invertClick", ModClientConfig.INSTANCE.GENERAL.invertClick.get()));
+        }));
 
         ClientTooltipComponentCallback.EVENT.register((TooltipComponent data) -> {
             if (data instanceof DetachedDrawerTooltip)

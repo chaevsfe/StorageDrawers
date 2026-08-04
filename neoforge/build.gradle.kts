@@ -45,7 +45,7 @@ tasks.create<TaskPublishCurseForge>("publishCurseForge") {
     val mainFile = upload(Properties.curseProjectId, tasks.jar.get().archiveFile)
     mainFile.displayName = "${Properties.name}-${Versions.minecraft}-neoforge-$version"
     mainFile.changelogType = "markdown"
-    mainFile.changelog = File(rootDir, "CHANGELOG.last.md").readText()
+    mainFile.changelog = (File(rootDir, "CHANGELOG.last.md").takeIf { it.exists() }?.readText() ?: "")
     mainFile.releaseType = Properties.distRelease
     Properties.distGameVersions.split(',').forEach { v -> mainFile.addGameVersion(v) }
     mainFile.addModLoader("NeoForge")
@@ -54,7 +54,7 @@ tasks.create<TaskPublishCurseForge>("publishCurseForge") {
 modrinth {
     token.set(System.getenv("MODRINTH_API_KEY") ?: "debug_key")
     projectId.set(Properties.modrinthProjectId)
-    changelog.set(File(rootDir, "CHANGELOG.last.md").readText())
+    changelog.set((File(rootDir, "CHANGELOG.last.md").takeIf { it.exists() }?.readText() ?: ""))
     versionName.set("${Properties.name}-${Versions.minecraft}-neoforge-$version")
     versionNumber.set("${Versions.minecraft}-${Versions.mod}")
     versionType.set(Properties.distRelease)

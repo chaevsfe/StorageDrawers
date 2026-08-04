@@ -20,6 +20,12 @@ public class DetachedDrawerData implements IDrawer
     private int storageMult;
     private boolean heavy;
 
+    // Raw "Item" NBT that no repair could decode, plus its saved quantity -- preserved so
+    // that round-tripping this object (e.g. the upgrade crafting recipe re-serializing
+    // CUSTOM_DATA) never destroys data a load failed to read. Mirrors StandardDrawerGroup.
+    private CompoundTag unreadableItemTag;
+    private int unreadableCount;
+
     public DetachedDrawerData () {
         protoStack = ItemStack.EMPTY;
         count = 0;
@@ -46,6 +52,8 @@ public class DetachedDrawerData implements IDrawer
         count = data.count;
         storageMult = data.storageMult;
         heavy = data.heavy;
+        unreadableItemTag = data.unreadableItemTag;
+        unreadableCount = data.unreadableCount;
     }
 
     public int getStorageMultiplier () {
@@ -75,9 +83,12 @@ public class DetachedDrawerData implements IDrawer
     }
 
     protected IDrawer setStoredItemRaw (@NotNull ItemStack itemPrototype) {
+        unreadableItemTag = null;
+        unreadableCount = 0;
         itemPrototype = ItemStackHelper.getItemPrototype(itemPrototype);
         protoStack = itemPrototype;
-        protoStack.setCount(1);
+        if (!protoStack.isEmpty())
+            protoStack.setCount(1);
         count = 0;
 
         return this;
@@ -123,6 +134,11 @@ public class DetachedDrawerData implements IDrawer
     }
 
     @Override
+    public boolean hasParkedContents () {
+        return unreadableItemTag != null;
+    }
+
+    @Override
     public IDrawer copy () {
         return new DetachedDrawerData(this);
     }
@@ -131,8 +147,15 @@ public class DetachedDrawerData implements IDrawer
         if (storageMult > 1)
             output.putInt("StorageMult", storageMult);
 
-        if (protoStack.isEmpty())
+        if (protoStack.isEmpty()) {
+            if (unreadableItemTag != null) {
+                output.store("Item", CompoundTag.CODEC, unreadableItemTag);
+                output.putInt("Count", unreadableCount);
+                if (heavy)
+                    output.putBoolean("Heavy", true);
+            }
             return;
+        }
 
         output.store("Item", ItemStack.CODEC, protoStack);
         output.putInt("Count", count);
@@ -150,12 +173,19 @@ public class DetachedDrawerData implements IDrawer
         setIsHeavy(input.getBooleanOr("Heavy", false));
         // Parse via the codec directly and accept only a FULL success -- ValueInput.read
         // hands back a failed decode's partial value, silently stripping the failed component.
-        ItemStack stack = input.read("Item", net.minecraft.nbt.CompoundTag.CODEC)
-            .map(raw -> LegacyStackCodec.CODEC.parse(
-                input.lookup().createSerializationContext(net.minecraft.nbt.NbtOps.INSTANCE), raw)
-                .result().orElse(ItemStack.EMPTY))
-            .orElse(ItemStack.EMPTY);
+        CompoundTag rawItem = input.read("Item", CompoundTag.CODEC).orElse(null);
+        ItemStack stack = rawItem == null ? ItemStack.EMPTY
+            : LegacyStackCodec.PARKING_CODEC.parse(
+                input.lookup().createSerializationContext(net.minecraft.nbt.NbtOps.INSTANCE), rawItem)
+                .result().orElse(ItemStack.EMPTY);
         setStoredItemRaw(stack);
         setStoredItemCountRaw(input.getIntOr("Count", 0));
+
+        if (rawItem != null && stack.isEmpty()) {
+            unreadableItemTag = rawItem;
+            unreadableCount = input.getIntOr("Count", 0);
+            count = 0;
+            LegacyStackCodec.reportUnreadable(rawItem);
+        }
     }
 }

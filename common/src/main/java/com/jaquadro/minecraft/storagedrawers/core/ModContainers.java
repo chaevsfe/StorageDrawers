@@ -20,8 +20,8 @@ public class ModContainers
         CONTAINERS.register("drawer_container_2", ChameleonServices.CONTAINER.getContainerSupplier(ContainerDrawers2::new, PositionContent.SERIALIZER));
     public static final RegistryEntry<MenuType<ContainerDrawers4>> DRAWER_CONTAINER_4 =
         CONTAINERS.register("drawer_container_4", ChameleonServices.CONTAINER.getContainerSupplier(ContainerDrawers4::new, PositionContent.SERIALIZER));
-    public static final RegistryEntry<MenuType<ContainerDrawersComp3>> DRAWER_CONTAINER_COMP_2 =
-        CONTAINERS.register("drawer_container_comp_2", ChameleonServices.CONTAINER.getContainerSupplier(ContainerDrawersComp3::new, PositionContent.SERIALIZER));
+    public static final RegistryEntry<MenuType<ContainerDrawersComp2>> DRAWER_CONTAINER_COMP_2 =
+        CONTAINERS.register("drawer_container_comp_2", ChameleonServices.CONTAINER.getContainerSupplier(ContainerDrawersComp2::new, PositionContent.SERIALIZER));
     public static final RegistryEntry<MenuType<ContainerDrawersComp3>> DRAWER_CONTAINER_COMP_3 =
         CONTAINERS.register("drawer_container_comp_3", ChameleonServices.CONTAINER.getContainerSupplier(ContainerDrawersComp3::new, PositionContent.SERIALIZER));
     public static final RegistryEntry<MenuType<ContainerFramingTable>> FRAMING_TABLE =

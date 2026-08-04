@@ -52,6 +52,11 @@ public class MaterialData extends BlockEntityDataShim implements IFramedMaterial
     @NotNull
     private ItemStack materialTrim;
 
+    // Raw material NBT that no repair could decode, indexed MatB/MatS/MatF/MatT. Re-emitted
+    // on write so a load failure (e.g. a removed mod's material block) never destroys the
+    // bytes; the slot presents as empty until something can read them again.
+    private final CompoundTag[] parkedMats = new CompoundTag[4];
+
     public MaterialData () {
         this(ItemStack.EMPTY, ItemStack.EMPTY, ItemStack.EMPTY, ItemStack.EMPTY);
     }
@@ -158,33 +163,46 @@ public class MaterialData extends BlockEntityDataShim implements IFramedMaterial
 
     @Override
     public void read (ValueInput input) {
-        frameBase = input.read("MatB", LegacyStackCodec.CODEC).orElse(ItemStack.EMPTY);
-        materialSide = input.read("MatS", LegacyStackCodec.CODEC).orElse(ItemStack.EMPTY);
-        materialFront = input.read("MatF", LegacyStackCodec.CODEC).orElse(ItemStack.EMPTY);
-        materialTrim = input.read("MatT", LegacyStackCodec.CODEC).orElse(ItemStack.EMPTY);
+        frameBase = readMat(input, "MatB", 0);
+        materialSide = readMat(input, "MatS", 1);
+        materialFront = readMat(input, "MatF", 2);
+        materialTrim = readMat(input, "MatT", 3);
+    }
+
+    // Parse via the parking codec and keep the raw bytes on failure: ValueInput.read hands
+    // back a failed decode's partial value (silently stripping the failed component), and a
+    // fully-unreadable material would otherwise be dropped entirely on the next save.
+    private ItemStack readMat (ValueInput input, String name, int idx) {
+        parkedMats[idx] = null;
+        CompoundTag raw = input.read(name, CompoundTag.CODEC).orElse(null);
+        if (raw == null)
+            return ItemStack.EMPTY;
+
+        ItemStack stack = LegacyStackCodec.PARKING_CODEC.parse(
+            input.lookup().createSerializationContext(net.minecraft.nbt.NbtOps.INSTANCE), raw)
+            .result().orElse(ItemStack.EMPTY);
+        if (stack.isEmpty()) {
+            parkedMats[idx] = raw;
+            LegacyStackCodec.reportUnreadable(raw);
+        }
+        return stack;
     }
 
     @Override
     public void write (ValueOutput output) {
-        if (!frameBase.isEmpty())
-            output.store("MatB", ItemStack.CODEC, frameBase);
-        else
-            output.discard("MatB");
+        writeMat(output, "MatB", frameBase, 0);
+        writeMat(output, "MatS", materialSide, 1);
+        writeMat(output, "MatF", materialFront, 2);
+        writeMat(output, "MatT", materialTrim, 3);
+    }
 
-        if (!materialSide.isEmpty())
-            output.store("MatS", ItemStack.CODEC, materialSide);
+    private void writeMat (ValueOutput output, String name, ItemStack stack, int idx) {
+        if (!stack.isEmpty())
+            output.store(name, ItemStack.CODEC, stack);
+        else if (parkedMats[idx] != null)
+            output.store(name, CompoundTag.CODEC, parkedMats[idx]);
         else
-            output.discard("MatS");
-
-        if (!materialFront.isEmpty())
-            output.store("MatF", ItemStack.CODEC, materialFront);
-        else
-            output.discard("MatF");
-
-        if (!materialTrim.isEmpty())
-            output.store("MatT", ItemStack.CODEC, materialTrim);
-        else
-            output.discard("MatT");
+            output.discard(name);
     }
 
     @Override

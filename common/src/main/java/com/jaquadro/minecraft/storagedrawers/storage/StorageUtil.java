@@ -93,11 +93,18 @@ public class StorageUtil
         if (!ModCommonConfig.INSTANCE.UPGRADES.balanceUpgrade.enableUpgrade.get())
             return;
 
-        List<IDrawer> balanceDrawers = drawers.filter(IDrawer::isEnabled).toList();
+        // Unlimited-vending drawers report MAX_VALUE stored and ignore count writes;
+        // including them corrupts the aggregate.
+        List<IDrawer> balanceDrawers = drawers.filter(IDrawer::isEnabled)
+            .filter(d -> !d.getAttributes().isUnlimitedVending())
+            .toList();
         if (balanceDrawers.size() <= 1)
             return;
 
-        int aggCount = balanceDrawers.stream().mapToInt(IDrawer::getStoredItemCount).sum();
+        // Long math: a couple of near-MAX_VALUE drawers overflow an int aggregate.
+        long aggCount = 0;
+        for (IDrawer d : balanceDrawers)
+            aggCount += d.getStoredItemCount();
         List<Integer> balanceCapacity = balanceDrawers.stream().map(IDrawer::getMaxCapacity).toList();
         int[] newAmount = new int[balanceCapacity.size()];
 
@@ -107,13 +114,19 @@ public class StorageUtil
                 if (newAmount[i] < balanceCapacity.get(i))
                     availDrawers += 1;
             }
+            if (availDrawers == 0) {
+                // Aggregate exceeds total capacity (corrupt counts). Assign the excess to
+                // the first drawer instead of dividing by zero; its setter clamps.
+                newAmount[0] = (int) Math.min(Integer.MAX_VALUE, newAmount[0] + aggCount);
+                break;
+            }
 
-            int dist = aggCount / availDrawers;
-            int remainder = aggCount - (dist * availDrawers);
+            long dist = aggCount / availDrawers;
+            long remainder = aggCount - (dist * availDrawers);
 
             for (int i = 0; i < balanceDrawers.size(); i++) {
                 int remaining = balanceCapacity.get(i) - newAmount[i];
-                int toAdd = Math.min(remaining, dist + (i < remainder ? 1 : 0));
+                int toAdd = (int) Math.min(remaining, Math.min(Integer.MAX_VALUE, dist + (i < remainder ? 1 : 0)));
                 newAmount[i] += toAdd;
                 aggCount -= toAdd;
             }

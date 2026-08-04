@@ -205,7 +205,7 @@ public class CompactingHelper
             for (Item candidate : candidates) {
                 Identifier matchName = BuiltInRegistries.ITEM.getKey(candidate);
                 if (matchName != null) {
-                    if (referenceName.getNamespace().equals(matchName.getPath()))
+                    if (referenceName.getNamespace().equals(matchName.getNamespace()))
                         return new ItemStack(candidate);
                 }
             }

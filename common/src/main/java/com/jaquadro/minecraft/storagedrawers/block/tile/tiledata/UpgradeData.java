@@ -392,8 +392,10 @@ public class UpgradeData extends BlockEntityDataShim
         if (upgradesTag.isEmpty())
             return;
 
-        for (ItemStackWithSlot slotStack : upgradesTag.get())
-            upgrades[slotStack.slot()] = slotStack.stack();
+        for (ItemStackWithSlot slotStack : upgradesTag.get()) {
+            if (slotStack.isValidInContainer(upgrades.length))
+                upgrades[slotStack.slot()] = slotStack.stack();
+        }
 
         syncUpgrades();
     }

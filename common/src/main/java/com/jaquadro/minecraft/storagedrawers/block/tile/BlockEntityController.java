@@ -1142,16 +1142,15 @@ public class BlockEntityController extends BaseBlockEntity implements IDrawerGro
                         : drawer.adjustStoredItemCount(-remaining);
 
                     if (remaining == 0)
-                        return stackResult(stack, amount);
+                        break;
                 }
-
-                if (!rebalance.isEmpty())
-                    StorageUtil.rebalanceDrawers(rebalance.stream());
-
-                return (amount == remaining)
-                    ? ItemStack.EMPTY
-                    : stackResult(stack, amount - remaining);
             }
+
+            // Rebalance whenever balanced drawers were touched -- including the common case
+            // where primary records fully satisfy the request, which previously skipped it --
+            // and never during simulation, which must not mutate state.
+            if (!simulate && !rebalance.isEmpty())
+                StorageUtil.rebalanceDrawers(rebalance.stream());
 
             return (amount == remaining)
                 ? ItemStack.EMPTY

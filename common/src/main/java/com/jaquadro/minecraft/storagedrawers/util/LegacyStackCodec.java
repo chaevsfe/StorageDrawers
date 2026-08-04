@@ -47,13 +47,24 @@ import java.util.concurrent.ConcurrentHashMap;
  *    left to the caller, and the drawer groups park the raw NBT so the bytes survive every
  *    save until something can read them again.
  *
- * The strict decode always runs first, so valid data never takes any of this, and when a
- * repair does not produce a decodable stack the ORIGINAL error is returned, never a new one.
+ * The strict decode always runs first, so valid data never takes any of this. When a repair
+ * does not produce a decodable stack, a failed strict decode is returned as the ORIGINAL
+ * error, never a new one. A strict decode that only succeeded lossily (markers above) is
+ * handled per caller class: {@link #PARKING_CODEC} refuses it so the drawer stores park the
+ * raw bytes verbatim, while {@link #CODEC}/{@link #OPTIONAL_CODEC} -- used embedded in
+ * component codecs, where an error would cost the whole surrounding component -- accept it
+ * as they always did, now with a log line naming the loss.
  */
 public final class LegacyStackCodec
 {
-    public static final Codec<ItemStack> CODEC = tolerant(ItemStack.CODEC);
-    public static final Codec<ItemStack> OPTIONAL_CODEC = tolerant(ItemStack.OPTIONAL_CODEC);
+    public static final Codec<ItemStack> CODEC = tolerant(ItemStack.CODEC, false);
+    public static final Codec<ItemStack> OPTIONAL_CODEC = tolerant(ItemStack.OPTIONAL_CODEC, false);
+
+    /** For callers that PARK raw NBT when the parse fails (the drawer stores): a lossy decode
+     *  whose repair fails is refused with an error instead of accepted stripped, so the caller
+     *  preserves the original bytes. Everyone else keeps {@link #CODEC}: without a park, an
+     *  error would cost the whole surrounding component where acceptance costs one field. */
+    public static final Codec<ItemStack> PARKING_CODEC = tolerant(ItemStack.CODEC, true);
 
     // Data versions of the vanilla fixes that legacy shape evidence maps to. Each constant is
     // the version the fix is REGISTERED at (read from DataFixers.addFixers bytecode in the
@@ -99,7 +110,7 @@ public final class LegacyStackCodec
             + "is installed, but storing a new item in that slot will discard it.", id);
     }
 
-    private static Codec<ItemStack> tolerant (Codec<ItemStack> base) {
+    private static Codec<ItemStack> tolerant (Codec<ItemStack> base, boolean park) {
         return new Codec<ItemStack>() {
             @Override
             public <T> DataResult<Pair<ItemStack, T>> decode (DynamicOps<T> ops, T input) {
@@ -114,12 +125,32 @@ public final class LegacyStackCodec
                 boolean preComponent = data.get("tag").result().isPresent()
                     || data.get("Count").result().isPresent();
 
-                if (strict.result().isPresent() && !preComponent && !lossyCleanDecode(data))
+                // A lossy strict success is a decode that dropped data on the floor. Every
+                // repair-failure exit below must route it through unrepairable(), which
+                // refuses it (parking callers) or at least logs the loss -- never accept
+                // it silently.
+                boolean lossy = strict.result().isPresent()
+                    && (preComponent || lossyCleanDecode(data));
+
+                if (strict.result().isPresent() && !lossy)
                     return strict;
 
                 int from = sourceVersion(data, preComponent);
-                if (from < 0 || from >= SharedConstants.WORLD_VERSION)
+                if (from >= legacyShapeCeiling(data, preComponent)) {
+                    // A stamp is written per block entity, but parked bytes -- and item NBT
+                    // merged onto a freshly-placed block entity -- ride under a stamp that
+                    // never re-encoded them, and stamps go stale as the game updates while
+                    // WORLD_VERSION moves on. No stack carrying a certainly-legacy shape can
+                    // genuinely have been written at or after the fix that CONSUMES that
+                    // shape, so any such claimed version is discarded in favor of the
+                    // stack's own shape evidence. A bare show_in_tooltip never triggers
+                    // this: a modded component may carry that field legitimately.
+                    from = evidenceVersion(data, preComponent);
+                }
+                if (from >= SharedConstants.WORLD_VERSION)
                     return strict;
+                if (from < 0)
+                    return lossy ? unrepairable(strict, park, data, "its source version could not be determined") : strict;
 
                 T fixed;
                 try {
@@ -128,12 +159,18 @@ public final class LegacyStackCodec
                         .getValue();
                 } catch (Exception e) {
                     ModServices.log.error("Vanilla data fixer failed on a stored item stack", e);
-                    return strict;
+                    return lossy ? unrepairable(strict, park, data, "the vanilla data fixer failed on it") : strict;
                 }
 
                 DataResult<Pair<ItemStack, T>> retry = base.decode(ops, fixed);
                 if (retry.result().isEmpty())
-                    return strict;
+                    return lossy ? unrepairable(strict, park, data, "its repaired form still failed to decode") : strict;
+
+                // A repair that leaves a certainly-legacy shape in place repaired nothing --
+                // the chain started past the fixes the shape needs (a wrong or stale hint).
+                // Returning it would launder still-lossy data as a success.
+                if (lossy && certainLegacyShape(new Dynamic<>(ops, fixed)))
+                    return unrepairable(strict, park, data, "repair left its legacy shape in place");
 
                 reportRepaired(data, from);
                 return retry;
@@ -157,6 +194,11 @@ public final class LegacyStackCodec
         if (hinted != null && hinted > 0)
             return hinted;
 
+        return evidenceVersion(data, preComponent);
+    }
+
+    /** Shape-evidence dating only, ignoring any stamped hint. */
+    private static int evidenceVersion (Dynamic<?> data, boolean preComponent) {
         if (preComponent)
             return V_PRE_COMPONENT_FLOOR;
 
@@ -171,24 +213,14 @@ public final class LegacyStackCodec
 
         int needed = Integer.MAX_VALUE;
 
-        if (hasWrapper(components, "minecraft:enchantments", "levels")
-            || hasWrapper(components, "minecraft:stored_enchantments", "levels")
-            || hasWrapper(components, "minecraft:attribute_modifiers", "modifiers")
-            || hasWrapper(components, "minecraft:dyed_color", "rgb")
-            || hasWrapper(components, "minecraft:can_place_on", "predicates")
-            || hasWrapper(components, "minecraft:can_break", "predicates")
-            || hasWrapper(components, "minecraft:jukebox_playable", "song")
-            || anyShowInTooltip(components)
-            || components.get("minecraft:hide_tooltip").result().isPresent()
-            || components.get("minecraft:hide_additional_tooltip").result().isPresent())
+        if (vanillaWrapperShape(components) || adventurePredicateWrapper(components)
+            || legacyJsonText(components) || anyShowInTooltip(components))
             needed = Math.min(needed, V_TOOLTIP_FLATTEN);
 
         if (components.get("minecraft:custom_model_data").asNumber().result().isPresent())
             needed = Math.min(needed, V_CUSTOM_MODEL_DATA);
 
-        Dynamic<?> food = components.get("minecraft:food").orElseEmptyMap();
-        if (food.get("eat_seconds").result().isPresent()
-            || food.get("using_converts_to").result().isPresent()
+        if (legacyFoodShape(components)
             || components.get("minecraft:fire_resistant").result().isPresent())
             needed = Math.min(needed, V_FOOD_TO_CONSUMABLE);
 
@@ -210,13 +242,94 @@ public final class LegacyStackCodec
             return false;
         Dynamic<?> components = maybeComponents.get();
 
+        return legacyFoodShape(components) || legacyJsonText(components)
+            || anyShowInTooltip(components);
+    }
+
+    // Fields FoodToConsumableFix removes from minecraft:food. Shared by the lossy-marker and
+    // evidence scans so the two sets cannot drift apart: any shape that forces the fixer path
+    // must also be datable by the evidence scan, or the forced repair has no starting version
+    // and the stack is refused (unrepairable) instead of accepted stripped.
+    private static boolean legacyFoodShape (Dynamic<?> components) {
         Dynamic<?> food = components.get("minecraft:food").orElseEmptyMap();
-        if (food.get("eat_seconds").result().isPresent()
+        return food.get("eat_seconds").result().isPresent()
             || food.get("using_converts_to").result().isPresent()
-            || food.get("effects").result().isPresent())
+            || food.get("effects").result().isPresent();
+    }
+
+    // Old wrapper forms of vanilla-owned components, all consumed by the 1.21.5 fix span
+    // starting at V_TOOLTIP_FLATTEN. Unlike a bare show_in_tooltip field (which a modded
+    // component may carry), these shapes cannot occur in current-format data. Deliberately
+    // NOT here: can_place_on/can_break -- the MODERN AdventureModePredicate encodes a
+    // single-element list as a bare BlockPredicate map whose inlined DataComponentMatchers
+    // has a legitimate top-level "predicates" field, so that wrapper is evidence only
+    // (adventurePredicateWrapper), never certainty.
+    private static boolean vanillaWrapperShape (Dynamic<?> components) {
+        return hasWrapper(components, "minecraft:enchantments", "levels")
+            || hasWrapper(components, "minecraft:stored_enchantments", "levels")
+            || hasWrapper(components, "minecraft:attribute_modifiers", "modifiers")
+            || hasWrapper(components, "minecraft:dyed_color", "rgb")
+            || hasWrapper(components, "minecraft:jukebox_playable", "song")
+            || components.get("minecraft:hide_tooltip").result().isPresent()
+            || components.get("minecraft:hide_additional_tooltip").result().isPresent();
+    }
+
+    private static boolean adventurePredicateWrapper (Dynamic<?> components) {
+        return hasWrapper(components, "minecraft:can_place_on", "predicates")
+            || hasWrapper(components, "minecraft:can_break", "predicates");
+    }
+
+    // 1.20.5-1.21.4 text components serialize as JSON strings, which the modern codec
+    // accepts as LITERALS -- an anvil-renamed item migrates with its name shown as raw
+    // JSON. Kept narrow to the two shapes vanilla actually wrote ('{"...} objects and
+    // "..."-quoted strings) because a modern literal name could legitimately look
+    // JSON-ish; for the same reason this is evidence, never certainty -- a stamp wins.
+    private static boolean legacyJsonText (Dynamic<?> components) {
+        if (jsonLike(components.get("minecraft:custom_name").asString().result())
+            || jsonLike(components.get("minecraft:item_name").asString().result()))
             return true;
 
-        return anyShowInTooltip(components);
+        return components.get("minecraft:lore").asStreamOpt().result()
+            .map(s -> s.anyMatch(e -> jsonLike(e.asString().result())))
+            .orElse(false);
+    }
+
+    private static boolean jsonLike (Optional<String> value) {
+        if (value.isEmpty())
+            return false;
+
+        String s = value.get().trim();
+        return (s.startsWith("{\"") && s.endsWith("}"))
+            || (s.length() >= 2 && s.startsWith("\"") && s.endsWith("\""));
+    }
+
+    /** The registration version of the OLDEST vanilla fix that consumes any certainly-legacy
+     *  shape this stack carries -- no stack with that shape can genuinely have been written
+     *  at or after it, so a claimed version there is a lie (a stale or unearned stamp).
+     *  MAX_VALUE when the stack has no certain shape, so the claim always stands. */
+    private static int legacyShapeCeiling (Dynamic<?> data, boolean preComponent) {
+        int ceiling = Integer.MAX_VALUE;
+        if (preComponent)
+            ceiling = V_COMPONENTIZATION;
+
+        Optional<? extends Dynamic<?>> components = data.get("components").result();
+        if (components.isPresent()) {
+            if (legacyFoodShape(components.get()))
+                ceiling = Math.min(ceiling, V_FOOD_TO_CONSUMABLE);
+            if (vanillaWrapperShape(components.get()))
+                ceiling = Math.min(ceiling, V_TOOLTIP_FLATTEN);
+        }
+        return ceiling;
+    }
+
+    /** Whether the stack carries a shape that CANNOT occur in current-format data. */
+    private static boolean certainLegacyShape (Dynamic<?> data) {
+        if (data.get("tag").result().isPresent() || data.get("Count").result().isPresent())
+            return true;
+
+        return data.get("components").result()
+            .map(c -> legacyFoodShape(c) || vanillaWrapperShape(c))
+            .orElse(false);
     }
 
     private static boolean hasWrapper (Dynamic<?> components, String component, String wrapper) {
@@ -239,6 +352,29 @@ public final class LegacyStackCodec
             stream.anyMatch(e -> e.get("uuid").result().isPresent()
                 || (e.get("name").asString().result().isPresent() && e.get("id").result().isEmpty()))
         ).orElse(false);
+    }
+
+    /** A strict decode that succeeded only by dropping data reached a failed repair. For the
+     *  parking codec, refuse it: the returned error makes the caller park the raw NBT, and it
+     *  still carries the stripped stack as a partial value for any reader that recovers
+     *  partials. For everyone else -- callers embedded in component codecs, where an error
+     *  costs the whole surrounding component instead of one field -- accept it exactly as
+     *  before, but say so in the log. */
+    private static <R> DataResult<R> unrepairable (DataResult<R> lossySuccess, boolean park, Dynamic<?> data, String reason) {
+        String id = data.get("id").asString().result().orElse("<unknown item>");
+        if (park) {
+            if (reported.add("lossypark:" + id))
+                ModServices.log.warn("Stored item '{}' is in a legacy format that could not be repaired ({}); "
+                    + "refusing to load it with data missing. Its raw data is parked and retried on every "
+                    + "load.", id, reason);
+            return DataResult.error(() -> "LegacyStackCodec: lossy decode refused: " + reason,
+                lossySuccess.result().orElseThrow());
+        }
+
+        if (reported.add("lossyaccept:" + id))
+            ModServices.log.warn("Stored item '{}' is in a legacy format that could not be repaired ({}); "
+                + "it was loaded with its unrepaired legacy fields dropped.", id, reason);
+        return lossySuccess;
     }
 
     private static void reportRepaired (Dynamic<?> data, int from) {

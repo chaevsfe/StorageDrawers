@@ -71,8 +71,6 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 
-import static com.ibm.icu.impl.CurrencyData.provider;
-
 public abstract class BlockEntityDrawers extends BaseBlockEntity implements IDrawerGroup, IProtectable, INetworked, IFramedBlockEntity, Nameable, RenderDataProvider
 {
     private MaterialData materialData = new MaterialData();
@@ -151,7 +149,13 @@ public abstract class BlockEntityDrawers extends BaseBlockEntity implements IDra
                 int remLevel = ((ItemUpgradeStorage) upgrade.getItem()).level.getLevel();
                 int remMult = ModCommonConfig.INSTANCE.UPGRADES.getLevelMult(remLevel);
 
-                return stackCapacityCheck(getDrawerCapacity() * (currentUpgradeMult - remMult));
+                // Removing the ONLY storage upgrade leaves the BASE multiplier, not zero --
+                // comparing against zero capacity blocked removal whenever items were stored.
+                int newMult = currentUpgradeMult - remMult;
+                if (newMult == 0)
+                    newMult = ModCommonConfig.INSTANCE.UPGRADES.getLevelMult(0);
+
+                return stackCapacityCheck(getDrawerCapacity() * newMult);
             }
 
             return true;
@@ -629,7 +633,9 @@ public abstract class BlockEntityDrawers extends BaseBlockEntity implements IDra
         if (!drawerAttributes.isVoid())
             countAdded = Math.min(countAdded, drawer.getRemainingCapacity());
 
-        drawer.setStoredItemCount(drawer.getStoredItemCount() + countAdded);
+        // Long-safe: on a void drawer the remaining-capacity clamp is skipped, and a drawer
+        // sitting at ~MAX_VALUE would wrap negative here and wipe its contents.
+        drawer.setStoredItemCount((int) Math.min((long) drawer.getStoredItemCount() + countAdded, Integer.MAX_VALUE));
         stack.shrink(countAdded);
 
         if (upgradeData.hasbalancedFillUpgrade() && !upgradeData.hasVendingUpgrade() && !drawerAttributes.isSuspended())
@@ -1019,11 +1025,20 @@ public abstract class BlockEntityDrawers extends BaseBlockEntity implements IDra
         @Nullable
         @Override
         public AbstractContainerMenu createMenu (int id, Inventory inventory, Player player) {
+            // Compacting drawers need their own containers: a 2-slot compacting drawer
+            // shares its slot count with the standard 2-slot drawer.
+            if (entity instanceof BlockEntityDrawersComp) {
+                return switch (entity.getGroup().getDrawerCount()) {
+                    case 2 -> new ContainerDrawersComp2(id, inventory, entity);
+                    case 3 -> new ContainerDrawersComp3(id, inventory, entity);
+                    default -> null;
+                };
+            }
+
             return switch (entity.getGroup().getDrawerCount()) {
                 case 1 -> new ContainerDrawers1(id, inventory, entity);
                 case 2 -> new ContainerDrawers2(id, inventory, entity);
                 case 4 -> new ContainerDrawers4(id, inventory, entity);
-                case 3 -> new ContainerDrawersComp3(id, inventory, entity);
                 default -> null;
             };
         }

@@ -112,7 +112,11 @@ public abstract class BlockEntityDrawersComp extends BlockEntityDrawers
 
         @Override
         protected int getStackCapacity () {
-            return upgrades().getStorageMultiplier() * getEffectiveDrawerCapacity();
+            try {
+                return Math.multiplyExact(upgrades().getStorageMultiplier(), getEffectiveDrawerCapacity());
+            } catch (ArithmeticException e) {
+                return Integer.MAX_VALUE;
+            }
         }
 
         @Override

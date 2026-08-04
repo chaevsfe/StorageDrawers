@@ -37,14 +37,11 @@ public record PlayerBoolConfigMessage(String uuid, String key, boolean value) im
 
     @Override
     public void handleMessage (Player player, Consumer<Runnable> workQueue) {
-        if (player instanceof ServerPlayer) {
+        if (player instanceof ServerPlayer serverPlayer) {
             workQueue.accept(() -> {
-                UUID playerUniqueId;
-                try {
-                    playerUniqueId = UUID.fromString(uuid);
-                } catch (IllegalArgumentException e) {
-                    return;
-                }
+                // Key on the AUTHENTICATED sender, never the client-supplied uuid string:
+                // any client could otherwise overwrite another player's settings.
+                UUID playerUniqueId = serverPlayer.getUUID();
 
                 Map<String, PlayerConfigSetting<?>> clientMap = PlayerConfig.serverPlayerConfigSettings.get(playerUniqueId);
                 if (clientMap == null) {

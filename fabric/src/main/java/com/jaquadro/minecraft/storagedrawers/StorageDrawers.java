@@ -10,6 +10,7 @@ import com.texelsaurus.minecraft.chameleon.service.ChameleonConfig;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.CommonLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 
 public class StorageDrawers implements ModInitializer
 {
@@ -34,6 +35,11 @@ public class StorageDrawers implements ModInitializer
         CommonEvents.init();
 
         PlatformCapabilities.initHandlers();
+
+        // Per-player settings arrive via PlayerBoolConfigMessage; prune on disconnect so
+        // the map does not grow for the lifetime of the server.
+        ServerPlayConnectionEvents.DISCONNECT.register((handler, server) ->
+            PlayerConfig.serverPlayerConfigSettings.remove(handler.getPlayer().getUUID()));
 
         ServerTickEvents.END_SERVER_TICK.register(server -> {
             for (var player : server.getPlayerList().getPlayers())

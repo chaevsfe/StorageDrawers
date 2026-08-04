@@ -48,6 +48,11 @@ public class ControllerHostData extends BlockEntityDataShim
         while (iterator.hasNext()) {
             BlockPos pos = iterator.next().getKey();
 
+            // getBlockEntity on an unloaded position synchronously loads the chunk, and this
+            // runs on a 100-tick cadence -- keep the entry and skip it until the chunk is in.
+            if (!level.isLoaded(pos))
+                continue;
+
             BlockEntity entity = level.getBlockEntity(pos);
             if (entity instanceof INetworked networked) {
                 if (networked.getBoundControlGroup() == host) {

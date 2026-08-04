@@ -148,9 +148,12 @@ public class DrawerModelStore
     public static final FrameMatSet FramedTrimMaterials = new FrameMatSet()
         .sidePart(DynamicPart.FRAMED_TRIM_SIDE).trimPart(DynamicPart.FRAMED_TRIM_TRIM);
 
-    private static final Map<BlockState, BlockStateModel> modelStore = new HashMap<>();
-    private static final Map<BlockState, Map<BlockState, BlockStateModel>> replacementStore = new HashMap<>();
-    private static final Set<BlockState> locationStore = new HashSet<>();
+    // Concurrent: written during parallel model bake and lazily from chunk-mesh worker
+    // threads. ConcurrentHashMap forbids null values, so "registered but not yet baked"
+    // lives in locationStore rather than a null placeholder in modelStore.
+    private static final Map<BlockState, BlockStateModel> modelStore = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final Map<BlockState, Map<BlockState, BlockStateModel>> replacementStore = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final Set<BlockState> locationStore = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
     public static final DecorationSet INSTANCE = new DecorationSet();
 
@@ -288,9 +291,16 @@ public class DrawerModelStore
 
     static BlockState addLocation(BlockState loc) {
         locationStore.add(loc);
-        modelStore.put(loc, null);
 
         return loc;
+    }
+
+    /** Model stores survive resource reloads as static state; stale baked models reference
+     *  dropped atlases. Called at the start of every model-load cycle. */
+    public static void clearCaches () {
+        modelStore.clear();
+        replacementStore.clear();
+        locationStore.clear();
     }
 
     static String getVariant() {
@@ -354,10 +364,10 @@ public class DrawerModelStore
     }
 
     public static void tryAddModel(BlockState loc, BlockStateModel model) {
-        if (loc == null)
+        if (loc == null || model == null)
             return;
 
-        if (modelStore.containsKey(loc))
+        if (locationStore.contains(loc))
             modelStore.put(loc, model);
     }
 
@@ -365,7 +375,7 @@ public class DrawerModelStore
         if (state == null)
             return null;
 
-        BlockStateModel storedModel = modelStore.getOrDefault(state, null);
+        BlockStateModel storedModel = modelStore.get(state);
         if (storedModel == null) {
             return Minecraft.getInstance().getModelManager().getBlockStateModelSet().get(state);
         } else {
@@ -402,25 +412,22 @@ public class DrawerModelStore
     }
 
     public static BlockStateModel getReplacementModel(BlockState loc, BlockState replaceLoc) {
-        Map<BlockState, BlockStateModel> store;
-        if (replacementStore.containsKey(loc))
-            store = replacementStore.get(loc);
-        else {
-            store = new HashMap<>();
-            replacementStore.put(loc, store);
-        }
+        Map<BlockState, BlockStateModel> store =
+            replacementStore.computeIfAbsent(loc, k -> new java.util.concurrent.ConcurrentHashMap<>());
 
-        if (store.containsKey(replaceLoc))
-            return store.get(replaceLoc);
+        BlockStateModel cached = store.get(replaceLoc);
+        if (cached != null)
+            return cached;
 
         BlockStateModel model = getModel(loc);
         BlockStateModel replacementModel = getModel(replaceLoc);
         if (replacementModel == null)
             return model;
 
+        // Racing workers may build twice; putIfAbsent keeps one canonical instance.
         BlockStateModel merged = new SpriteReplacementModel(model, replacementModel, ChunkSectionLayer.CUTOUT);
-        store.put(replaceLoc, merged);
-        return merged;
+        BlockStateModel prior = store.putIfAbsent(replaceLoc, merged);
+        return prior != null ? prior : merged;
     }
 
     public static BlockStateModel getReplacementModel(String variant, String replaceVariant) {

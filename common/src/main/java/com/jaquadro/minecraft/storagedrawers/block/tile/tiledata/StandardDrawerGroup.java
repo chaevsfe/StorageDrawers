@@ -65,8 +65,16 @@ public abstract class StandardDrawerGroup extends BlockEntityDataShim implements
         var itemList = input.childrenListOrEmpty("Drawers");
 
         int i = 0;
-        for (var item : itemList)
+        for (var item : itemList) {
+            if (i >= slots.length) {
+                // Corrupt or hand-edited NBT only; an exception here would make vanilla
+                // discard the whole block entity and wipe every slot on the next save.
+                com.jaquadro.minecraft.storagedrawers.ModServices.log.error(
+                    "Drawer block entity NBT has more saved slots than the block supports; extra entries ignored");
+                break;
+            }
             slots[i++].deserializeNBT(item);
+        }
     }
 
     @Override
@@ -124,10 +132,14 @@ public abstract class StandardDrawerGroup extends BlockEntityDataShim implements
         private ItemStackMatcher matcher;
         private boolean missing;
 
-        // Raw "Item" NBT that no repair could decode. Held so a load failure never destroys
-        // data on the next save: the slot presents as empty, but the bytes round-trip until
-        // either a codec that can read them arrives or a player stores something new here.
+        // Raw "Item" NBT that no repair could decode, and the quantity saved alongside it.
+        // Held so a load failure never destroys data on the next save: the slot presents as
+        // empty, but both round-trip verbatim until either a codec that can read them arrives
+        // or a player stores something new here. The quantity deliberately does NOT live in
+        // the live count field: empty-slot operations (detaching the drawer, reset) zero that
+        // field legitimately and must not be able to touch the parked data.
         private CompoundTag unreadableItemTag;
+        private int unreadableCount;
 
         public DrawerData (StandardDrawerGroup group) {
             this.group = group;
@@ -143,6 +155,9 @@ public abstract class StandardDrawerGroup extends BlockEntityDataShim implements
             protoStack = data.protoStack;
             count = data.count;
             matcher = data.matcher;
+            missing = data.missing;
+            unreadableItemTag = data.unreadableItemTag;
+            unreadableCount = data.unreadableCount;
         }
 
         @Override
@@ -189,6 +204,11 @@ public abstract class StandardDrawerGroup extends BlockEntityDataShim implements
                 return this;
             }
 
+            // Storing a real item is the one sanctioned point where parked unreadable data
+            // is discarded -- reportUnreadable warns about exactly this when parking.
+            unreadableItemTag = null;
+            unreadableCount = 0;
+
             protoStack = itemPrototype;
             protoStack.setCount(1);
             count = 0;
@@ -208,9 +228,11 @@ public abstract class StandardDrawerGroup extends BlockEntityDataShim implements
 
         protected IDrawer setStoredItemRaw (@NotNull ItemStack itemPrototype) {
             unreadableItemTag = null;
+            unreadableCount = 0;
             itemPrototype = ItemStackHelper.getItemPrototype(itemPrototype);
             protoStack = itemPrototype;
-            protoStack.setCount(1);
+            if (!protoStack.isEmpty())
+                protoStack.setCount(1);
             count = 0;
 
             IDrawerAttributes attrs = getAttributes();
@@ -417,7 +439,7 @@ public abstract class StandardDrawerGroup extends BlockEntityDataShim implements
             if (protoStack.isEmpty()) {
                 if (unreadableItemTag != null) {
                     output.store("Item", CompoundTag.CODEC, unreadableItemTag);
-                    output.putInt("Count", count);
+                    output.putInt("Count", unreadableCount);
                 }
                 return;
             }
@@ -432,7 +454,7 @@ public abstract class StandardDrawerGroup extends BlockEntityDataShim implements
             // hands back a failed decode's partial value, which silently strips whatever
             // component failed instead of surfacing the loss.
             ItemStack stack = rawItem == null ? ItemStack.EMPTY
-                : LegacyStackCodec.CODEC.parse(
+                : LegacyStackCodec.PARKING_CODEC.parse(
                     input.lookup().createSerializationContext(NbtOps.INSTANCE), rawItem)
                     .result().orElse(ItemStack.EMPTY);
 
@@ -441,6 +463,10 @@ public abstract class StandardDrawerGroup extends BlockEntityDataShim implements
 
             if (rawItem != null && stack.isEmpty()) {
                 unreadableItemTag = rawItem;
+                unreadableCount = input.getIntOr("Count", 0);
+                // Keep the live count clean for a parked slot: it is the field empty-slot
+                // operations mutate, and the parked quantity must survive those.
+                count = 0;
                 LegacyStackCodec.reportUnreadable(rawItem);
             }
 
@@ -467,6 +493,11 @@ public abstract class StandardDrawerGroup extends BlockEntityDataShim implements
         @Override
         public boolean canDetach () {
             return true;
+        }
+
+        @Override
+        public boolean hasParkedContents () {
+            return unreadableItemTag != null;
         }
 
         @Override

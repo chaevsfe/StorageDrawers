@@ -1,5 +1,6 @@
 package com.jaquadro.minecraft.storagedrawers.block.tile.tiledata;
 
+import com.jaquadro.minecraft.storagedrawers.ModServices;
 import com.jaquadro.minecraft.storagedrawers.api.storage.*;
 import com.jaquadro.minecraft.storagedrawers.api.storage.attribute.LockAttribute;
 import com.jaquadro.minecraft.storagedrawers.capabilities.Capabilities;
@@ -112,6 +113,10 @@ public class FractionalDrawerGroup extends BlockEntityDataShim implements IDrawe
         // failure never destroys data on the next save. See deserializeNBT.
         private CompoundTag unreadablePayload;
 
+        boolean hasUnreadablePayload () {
+            return unreadablePayload != null;
+        }
+
         private ItemStack cacheKey;
         private final ItemStack[] cachedProtoStack;
         private final int[] cachedConvRate;
@@ -223,9 +228,11 @@ public class FractionalDrawerGroup extends BlockEntityDataShim implements IDrawe
 
             int oldCount = pooledCount;
 
-            pooledCount = (pooledCount % convRate[slot]) + convRate[slot] * amount;
-            pooledCount = Math.min(pooledCount, getMaxCapacity(0) * convRate[0]);
-            pooledCount = Math.max(pooledCount, 0);
+            // Long-safe: convRate * amount wraps int with high storage upgrades near
+            // MAX_VALUE, which would zero (or corrupt) the whole pool below.
+            long newCount = (pooledCount % convRate[slot]) + (long) convRate[slot] * amount;
+            long poolMax = (long) getMaxCapacity(0) * convRate[0];
+            pooledCount = (int) Math.max(0, Math.min(newCount, Math.min(poolMax, Integer.MAX_VALUE)));
 
             if (pooledCount == oldCount)
                 return;
@@ -598,13 +605,19 @@ public class FractionalDrawerGroup extends BlockEntityDataShim implements IDrawe
             var itemList = input.childrenListOrEmpty("Items");
             for (var slotTag : itemList) {
                 int slot = slotTag.getIntOr("Slot", 0);
+                if (slot < 0 || slot >= slotCount) {
+                    // Corrupt or hand-edited NBT; indexing would throw and cost the whole
+                    // block entity. Treat it as unreadable so the full payload parks below.
+                    anyUnreadable = true;
+                    continue;
+                }
 
                 // Parse via the codec directly and accept only a FULL success: ValueInput.read
                 // hands back a failed decode's partial value, which silently strips whatever
                 // component failed instead of surfacing the loss.
                 CompoundTag rawItem = slotTag.read("Item", CompoundTag.CODEC).orElse(null);
                 ItemStack stack = rawItem == null ? ItemStack.EMPTY
-                    : LegacyStackCodec.CODEC.parse(deserializeOps, rawItem).result().orElse(ItemStack.EMPTY);
+                    : LegacyStackCodec.PARKING_CODEC.parse(deserializeOps, rawItem).result().orElse(ItemStack.EMPTY);
                 if (rawItem != null && stack.isEmpty())
                     anyUnreadable = true;
 
@@ -624,12 +637,12 @@ public class FractionalDrawerGroup extends BlockEntityDataShim implements IDrawe
             // read it exists (a future repair, or the item's mod being reinstalled).
             if (anyUnreadable) {
                 CompoundTag payload = new CompoundTag();
-                input.read("Items", CompoundTag.CODEC.listOf())
-                    .ifPresent(list -> {
-                        ListTag items = new ListTag();
-                        items.addAll(list);
-                        payload.put("Items", items);
-                    });
+                // Capture the ORIGINAL list bytes via passthrough, not a re-decode: a
+                // re-decode drops entries a strict list codec cannot read, and the park's
+                // whole contract is byte-verbatim survival of exactly what failed to parse.
+                input.read("Items", com.mojang.serialization.Codec.PASSTHROUGH)
+                    .ifPresent(dyn -> payload.put("Items",
+                        (Tag) dyn.convert(net.minecraft.nbt.NbtOps.INSTANCE).getValue()));
                 payload.putInt("Count", pooledCount);
                 unreadablePayload = payload;
                 LegacyStackCodec.reportUnreadable(payload);
@@ -674,6 +687,7 @@ public class FractionalDrawerGroup extends BlockEntityDataShim implements IDrawe
                 liveContent |= !protoStack[i].isEmpty();
             if (liveContent) {
                 group.log("Dropping parked unreadable contents: the drawer has been reused");
+                ModServices.log.warn("Dropping parked unreadable compacting-drawer contents: the drawer has been reused");
                 return;
             }
 
@@ -696,7 +710,7 @@ public class FractionalDrawerGroup extends BlockEntityDataShim implements IDrawe
                 }
                 Tag itemTag = slotTag.get("Item");
                 ItemStack stack = itemTag == null ? ItemStack.EMPTY
-                    : LegacyStackCodec.CODEC.parse(ops, itemTag).result().orElse(ItemStack.EMPTY);
+                    : LegacyStackCodec.PARKING_CODEC.parse(ops, itemTag).result().orElse(ItemStack.EMPTY);
                 if (stack.isEmpty()) {
                     unreadablePayload = payload;   // still unreadable; keep carrying it
                     return;
@@ -715,6 +729,7 @@ public class FractionalDrawerGroup extends BlockEntityDataShim implements IDrawe
             }
             pooledCount = payload.getIntOr("Count", 0);
             group.log("Recovered previously unreadable compacting drawer contents");
+            ModServices.log.info("Recovered previously unreadable compacting drawer contents");
         }
 
         public void syncAttributes () {
@@ -740,6 +755,11 @@ public class FractionalDrawerGroup extends BlockEntityDataShim implements IDrawe
 
         private FractionalDrawer(FractionalDrawer data) {
             this(data.storage, data.slot);
+        }
+
+        @Override
+        public boolean hasParkedContents () {
+            return storage.hasUnreadablePayload();
         }
 
         @NotNull

@@ -78,6 +78,11 @@ public class DrawerStackStorage extends SingleStackStorage
 
     @Override
     public long insert (ItemVariant insertedVariant, long maxAmount, TransactionContext transaction) {
+        // Suspension pauses automation IO; every other IO front door checks it, and this is
+        // the door vanilla hoppers and Fabric pipe mods use.
+        if (storage.getDrawer(slot).getAttributes().isSuspended())
+            return 0;
+
         if (!storage.getDrawer(slot).canItemBeStored(insertedVariant.toStack()))
             return 0;
 
@@ -106,6 +111,9 @@ public class DrawerStackStorage extends SingleStackStorage
 
     @Override
     public long extract (ItemVariant variant, long maxAmount, TransactionContext transaction) {
+        if (storage.getDrawer(slot).getAttributes().isSuspended())
+            return 0;
+
         if (!storage.getDrawer(slot).canItemBeExtracted(variant.toStack()))
             return 0;
 

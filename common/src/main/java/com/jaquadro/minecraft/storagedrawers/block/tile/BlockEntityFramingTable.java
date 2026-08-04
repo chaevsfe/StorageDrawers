@@ -81,12 +81,32 @@ public class BlockEntityFramingTable extends BaseBlockEntity implements Nameable
         return inventory;
     }
 
+    // Raw slot NBT that no repair could decode. These slots hold real player items;
+    // ValueInput.read would strip a failing component silently, and a fully-unreadable item
+    // would be dropped on the next save. A real item occupying the slot at save time wins
+    // over the parked bytes (the slot was legitimately reused).
+    private CompoundTag parkedInput;
+    private CompoundTag parkedResult;
+
     @Override
     protected void readFixed (ValueInput input) {
         super.readFixed(input);
 
-        inputStack = input.read("Input", LegacyStackCodec.CODEC).orElse(ItemStack.EMPTY);
-        resultStack = input.read("Result", LegacyStackCodec.CODEC).orElse(ItemStack.EMPTY);
+        var ops = input.lookup().createSerializationContext(net.minecraft.nbt.NbtOps.INSTANCE);
+
+        CompoundTag rawInput = input.read("Input", CompoundTag.CODEC).orElse(null);
+        inputStack = rawInput == null ? ItemStack.EMPTY
+            : LegacyStackCodec.PARKING_CODEC.parse(ops, rawInput).result().orElse(ItemStack.EMPTY);
+        parkedInput = (rawInput != null && inputStack.isEmpty()) ? rawInput : null;
+        if (parkedInput != null)
+            LegacyStackCodec.reportUnreadable(parkedInput);
+
+        CompoundTag rawResult = input.read("Result", CompoundTag.CODEC).orElse(null);
+        resultStack = rawResult == null ? ItemStack.EMPTY
+            : LegacyStackCodec.PARKING_CODEC.parse(ops, rawResult).result().orElse(ItemStack.EMPTY);
+        parkedResult = (rawResult != null && resultStack.isEmpty()) ? rawResult : null;
+        if (parkedResult != null)
+            LegacyStackCodec.reportUnreadable(parkedResult);
     }
 
     @Override
@@ -95,9 +115,13 @@ public class BlockEntityFramingTable extends BaseBlockEntity implements Nameable
 
         if (!inputStack.isEmpty())
             output.store("Input", ItemStack.CODEC, inputStack);
+        else if (parkedInput != null)
+            output.store("Input", CompoundTag.CODEC, parkedInput);
 
         if (!resultStack.isEmpty())
             output.store("Result", ItemStack.CODEC, resultStack);
+        else if (parkedResult != null)
+            output.store("Result", CompoundTag.CODEC, parkedResult);
     }
 
     public boolean isItemValidTarget (ItemStack stack) {
@@ -295,7 +319,7 @@ public class BlockEntityFramingTable extends BaseBlockEntity implements Nameable
 
         @Override
         public ItemStack removeItem (int slot, int amount) {
-            if (slot < 0 || slot > getContainerSize() || amount <= 0)
+            if (slot < 0 || slot >= getContainerSize() || amount <= 0)
                 return ItemStack.EMPTY;
 
             ItemStack ret = getItem(slot).split(amount);
@@ -308,7 +332,7 @@ public class BlockEntityFramingTable extends BaseBlockEntity implements Nameable
 
         @Override
         public ItemStack removeItemNoUpdate (int slot) {
-            if (slot < 0 || slot > getContainerSize())
+            if (slot < 0 || slot >= getContainerSize())
                 return ItemStack.EMPTY;
 
             ItemStack result = getItem(slot);
@@ -335,6 +359,9 @@ public class BlockEntityFramingTable extends BaseBlockEntity implements Nameable
         public void setChanged () {
             rebuildResult();
             this.entity.setChanged();
+            // setChanged only marks the chunk dirty; other players need the update packet
+            // or the table-top renderer shows stale items for them.
+            this.entity.markBlockForUpdate();
         }
 
         private void setInputItem (ItemStack stack) {

@@ -33,7 +33,14 @@ public abstract class MaterialModelDecorator<C extends FramedModelContext> exten
     protected final DrawerModelStore.FrameMatSet matSet;
     protected final boolean shaded;
 
-    private static final Map<BlockStateModel, Map<Identifier, BlockStateModel>> replacementCache = new HashMap<>();
+    // Concurrent: populated lazily from chunk-mesh worker threads.
+    private static final Map<BlockStateModel, Map<Identifier, BlockStateModel>> replacementCache =
+        new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** Stale baked models must not survive a resource reload. */
+    public static void clearCache () {
+        replacementCache.clear();
+    }
 
     private static final List<DecoratorRenderType> defaultRenderList = List.of(DecoratorRenderType.SOLID);
     private static final List<DecoratorRenderType> defaultShadedRenderList = List.of(DecoratorRenderType.SOLID, DecoratorRenderType.TRANSLUCENT);
@@ -112,27 +119,23 @@ public abstract class MaterialModelDecorator<C extends FramedModelContext> exten
     }
 
     private BlockStateModel getReplacementModel (BlockStateModel baseModel, ItemStack material, DecoratorRenderType renderType) {
-        Map<Identifier, BlockStateModel> matCache;
-        if (replacementCache.containsKey(baseModel))
-            matCache = replacementCache.get(baseModel);
-        else {
-            matCache = new HashMap<>();
-            replacementCache.put(baseModel, matCache);
-        }
+        Map<Identifier, BlockStateModel> matCache =
+            replacementCache.computeIfAbsent(baseModel, k -> new java.util.concurrent.ConcurrentHashMap<>());
 
         Identifier matName = BuiltInRegistries.ITEM.getKey(material.getItem());
-        BlockStateModel replacedModel = null;
-        if (matCache.containsKey(matName))
-            replacedModel = matCache.get(matName);
-        else {
+        BlockStateModel replacedModel = matCache.get(matName);
+        if (replacedModel == null) {
             ChunkSectionLayer layer = ChunkSectionLayer.SOLID;
             if (renderType == DecoratorRenderType.CUTOUT)
                 layer = ChunkSectionLayer.CUTOUT;
             else if (renderType == DecoratorRenderType.TRANSLUCENT)
                 layer = ChunkSectionLayer.TRANSLUCENT;
 
+            // Racing workers may build twice; putIfAbsent keeps one canonical instance.
             replacedModel = new SpriteReplacementModel(baseModel, material, layer);
-            matCache.put(matName, replacedModel);
+            BlockStateModel prior = matCache.putIfAbsent(matName, replacedModel);
+            if (prior != null)
+                replacedModel = prior;
         }
 
         return replacedModel;

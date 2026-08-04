@@ -588,6 +588,12 @@ public abstract class BlockDrawers extends FaceSlotBlock implements INetworked, 
         if (!ModCommonConfig.INSTANCE.GENERAL.enableUI.get())
             return;
 
+        // Every other interaction path runs this check; without it the UI exposes upgrade
+        // slots and item insertion on drawers protected by a personal key.
+        BlockEntityDrawers blockEntity = context.getCheckedEntity(BlockEntityDrawers.class, BlockDrawers.class);
+        if (blockEntity == null || !SecurityManager.hasAccess(context.player, blockEntity))
+            return;
+
         MenuProvider provider = context.state.getMenuProvider(context.level, context.pos);
         if (ModCommonConfig.INSTANCE.GENERAL.debugTrace.get())
             ModServices.log.info("Open BlockDrawers UI " + context.pos);
@@ -631,7 +637,10 @@ public abstract class BlockDrawers extends FaceSlotBlock implements INetworked, 
             boolean hasItemContents = false;
             for (int i = 0; i < tile.getGroup().getDrawerCount(); i++) {
                 IDrawer drawer = tile.getGroup().getDrawer(i);
-                if (!drawer.isEmpty() || drawer.isMissing())
+                // hasParkedContents: a parked slot presents as empty but its raw bytes only
+                // survive inside the serialized block entity -- dropping without it would
+                // permanently destroy data that every load path carefully preserved.
+                if (!drawer.isEmpty() || drawer.isMissing() || drawer.hasParkedContents())
                     hasItemContents = true;
             }
             for (int i = 0; i < tile.upgrades().getSlotCount(); i++) {
