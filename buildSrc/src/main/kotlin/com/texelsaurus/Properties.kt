@@ -29,5 +29,8 @@ object Properties {
     const val description = "Interactive compartment storage for your workshops"
     const val license = "MIT"
     const val distRelease = "release"
-    const val distGameVersions = "26.1"
+    // One jar covers the whole 26.1 patch line: fabric.mod.json declares >=26.1 <26.2, and
+    // all 22 accesswidener entries plus RenderTypes.solidMovingBlock verify unchanged against
+    // the real 26.1.1 and 26.1.2 client jars (checked 2026-08-03).
+    const val distGameVersions = "26.1,26.1.1,26.1.2"
 }
