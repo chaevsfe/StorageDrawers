@@ -49,7 +49,7 @@ tasks.create<TaskPublishCurseForge>("publishCurseForge") {
     mainFile.addModLoader("Fabric")
     mainFile.addEnvironment("Client", "Server")
     mainFile.addRequirement("fabric-api")
-    mainFile.addOptional("forge-config-api-port-fabric")
+    mainFile.addOptional("forge-config-api-port")
 }
 
 modrinth {
