@@ -1,8 +1,6 @@
 modLoader="javafml"
 loaderVersion="${loader_version_range}"
-issueTrackerURL="https://github.com/jaquadro/StorageDrawers/issues"
-displayURL="https://minecraft.curseforge.com/projects/storagedrawers"
-authors="${mod_authors}"
+issueTrackerURL="${mod_issues_url}"
 license="${mod_license}"
 
 [[mods]]
@@ -10,6 +8,9 @@ license="${mod_license}"
     version="${mod_version}"
     displayName="${mod_name}"
     description='''${mod_description}'''
+    authors="${mod_authors}, ${mod_maintainer}"
+    displayURL="${mod_homepage_url}"
+    logoFile="icon.png"
 
 [[dependencies.${mod_id}]]
     modId="minecraft"

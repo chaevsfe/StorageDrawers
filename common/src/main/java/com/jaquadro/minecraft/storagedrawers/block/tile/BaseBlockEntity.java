@@ -2,6 +2,7 @@ package com.jaquadro.minecraft.storagedrawers.block.tile;
 
 import com.jaquadro.minecraft.storagedrawers.block.tile.tiledata.BlockEntityDataShim;
 import com.jaquadro.minecraft.storagedrawers.util.LegacyStackCodec;
+import com.texelsaurus.minecraft.chameleon.ChameleonServices;
 import net.minecraft.SharedConstants;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
@@ -200,6 +201,12 @@ public class BaseBlockEntity extends BlockEntity
     public void markBlockForRenderUpdate () {
         if (getLevel() == null)
             return;
+
+        // Loaders that cache render data per position (NeoForge) have to be told it went stale
+        // before the re-render is requested, or the section is re-meshed from the old snapshot.
+        // No-op on Fabric, which re-reads it on every rebuild.
+        if (getLevel().isClientSide())
+            ChameleonServices.RENDER.refreshRenderData(this);
 
         //if (getWorld().isRemote)
         //    getWorld().markBlockRangeForRenderUpdate(pos, pos);

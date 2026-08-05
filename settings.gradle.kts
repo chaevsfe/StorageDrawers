@@ -21,8 +21,11 @@ plugins {
 
 rootProject.name = "StorageDrawers"
 include("common")
-// Scoped out for the 26.2 Fabric port — both platforms do have 26.2 builds
-// (NeoForge 26.2.0.28-beta, Forge 26.2-65.0.7); re-enable once Fabric is green.
+// :forge stays out. ForgeGradle 6 (which tops out at 6.0.54) refuses to apply on
+// Gradle 9 — "Versions Gradle 9.0 and newer are not supported yet" — so including it
+// fails CONFIGURATION, which takes :neoforge and :fabric down with it. ForgeGradle 7
+// applies but its Minecraft-dependency wiring is undocumented and produced an empty
+// compile classpath in testing. Re-enable only once that is solved.
 //include("forge")
-//include("neoforge")
+include("neoforge")
 include("fabric")

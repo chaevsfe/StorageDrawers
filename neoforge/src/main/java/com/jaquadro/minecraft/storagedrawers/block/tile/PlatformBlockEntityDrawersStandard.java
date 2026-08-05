@@ -1,8 +1,10 @@
 package com.jaquadro.minecraft.storagedrawers.block.tile;
 
+import com.jaquadro.minecraft.storagedrawers.client.model.NeoforgeModelData;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
+import net.neoforged.neoforge.model.data.ModelData;
 
 public abstract class PlatformBlockEntityDrawersStandard extends BlockEntityDrawersStandard
 {
@@ -20,6 +22,11 @@ public abstract class PlatformBlockEntityDrawersStandard extends BlockEntityDraw
             super.onLoad();
             onEntityLoad();
         }
+
+        @Override
+        public ModelData getModelData () {
+            return NeoforgeModelData.of(this);
+        }
     }
 
     public static class Slot2 extends BlockEntityDrawersStandard.Slot2 {
@@ -32,6 +39,11 @@ public abstract class PlatformBlockEntityDrawersStandard extends BlockEntityDraw
             super.onLoad();
             onEntityLoad();
         }
+
+        @Override
+        public ModelData getModelData () {
+            return NeoforgeModelData.of(this);
+        }
     }
 
     public static class Slot4 extends BlockEntityDrawersStandard.Slot4 {
@@ -43,6 +55,11 @@ public abstract class PlatformBlockEntityDrawersStandard extends BlockEntityDraw
         public void onLoad () {
             super.onLoad();
             onEntityLoad();
+        }
+
+        @Override
+        public ModelData getModelData () {
+            return NeoforgeModelData.of(this);
         }
     }
 }

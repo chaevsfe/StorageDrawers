@@ -52,6 +52,14 @@ repositories {
             includeGroupAndSubgroups("curse.maven")
         }
     }
+    // Jade lives here. A curse.maven coordinate is a single opaque file id, which cannot express
+    // "the build for this Minecraft line" and silently keeps resolving after it stops matching.
+    maven("https://api.modrinth.com/maven") {
+        name = "Modrinth"
+        content {
+            includeGroup("maven.modrinth")
+        }
+    }
     maven("https://raw.githubusercontent.com/Fuzss/modresources/main/maven/") {
         name = "Fuzs Mod Resources"
         content {

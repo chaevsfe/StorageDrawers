@@ -296,11 +296,15 @@ public class DrawerModelStore
     }
 
     /** Model stores survive resource reloads as static state; stale baked models reference
-     *  dropped atlases. Called at the start of every model-load cycle. */
+     *  dropped atlases. Called at the start of every model-load cycle.
+     *
+     *  locationStore is deliberately NOT cleared: it is registration data, not a cache. It holds
+     *  BlockStates, which outlive any resource reload, and it is filled exactly once from the static
+     *  initializer below. Clearing it emptied it permanently after the first reload, which made
+     *  tryAddModel a no-op and quietly demoted every overlay lookup to the getModel fallback. */
     public static void clearCaches () {
         modelStore.clear();
         replacementStore.clear();
-        locationStore.clear();
     }
 
     static String getVariant() {

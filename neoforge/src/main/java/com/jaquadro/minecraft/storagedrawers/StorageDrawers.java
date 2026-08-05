@@ -4,15 +4,11 @@ import com.jaquadro.minecraft.storagedrawers.capabilities.PlatformCapabilities;
 import com.jaquadro.minecraft.storagedrawers.config.*;
 import com.jaquadro.minecraft.storagedrawers.core.*;
 import com.jaquadro.minecraft.storagedrawers.integration.LocalIntegrationRegistry;
-import com.jaquadro.minecraft.storagedrawers.network.PlayerBoolConfigMessage;
-import com.texelsaurus.minecraft.chameleon.ChameleonServices;
 import com.texelsaurus.minecraft.chameleon.registry.NeoforgeRegistryContext;
 import com.texelsaurus.minecraft.chameleon.service.ChameleonConfig;
 import com.texelsaurus.minecraft.chameleon.service.NeoforgeConfig;
 import com.texelsaurus.minecraft.chameleon.service.NeoforgeNetworking;
-import net.minecraft.client.Minecraft;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.entity.player.Player;
+import net.minecraft.resources.Identifier;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.ModContainer;
@@ -21,12 +17,10 @@ import net.neoforged.fml.config.ModConfig;
 import net.neoforged.fml.event.config.ModConfigEvent;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.neoforge.common.NeoForge;
-import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
+import net.neoforged.neoforge.event.DefaultDataComponentsBoundEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-
-import java.util.UUID;
 
 @Mod(StorageDrawers.MOD_ID)
 public class StorageDrawers
@@ -74,10 +68,11 @@ public class StorageDrawers
     }
 
     private void setup (final FMLCommonSetupEvent event) {
-        //compRegistry = new CompTierRegistry();
-        CompTierRegistry.INSTANCE.initialize();
-        StorageBlacklist.INSTANCE.initialize();
-        MaterialBlacklist.INSTANCE.initialize();
+        // Only registries that never build an ItemStack may run here -- ConversionRegistry just
+        // makes TagKeys and parses strings. The other three resolve config entries into ItemStacks,
+        // which cannot happen at setup: on 26.x an item's data components are data-driven and bound
+        // during datapack load, and the ItemStack constructor reads them eagerly, so building one
+        // this early throws "Components not bound yet". They moved to onTagsUpdated below.
         ConversionRegistry.INSTANCE.initialize();
 
         LocalIntegrationRegistry.initialize();
@@ -108,27 +103,32 @@ public class StorageDrawers
             ModClientConfig.INSTANCE.setLoaded();
     }
 
+    /**
+     * The three registries below turn config entries into ItemStacks, so they cannot be built until
+     * data components are bound. This is the exact point that happens, and it is NOT TagsUpdatedEvent:
+     * ReloadableServerResources.updateComponentsAndStaticRegistryTags applies pending tags, posts
+     * TagsUpdatedEvent, THEN applies pending components and posts this one. Listening to the tags
+     * event crashes with "Components not bound yet" on the very first world load.
+     *
+     * It fires in both the places the Fabric build needs: server datapack load (and every reload),
+     * and client login from RegistryDataCollector. All three registries rebuild from scratch on
+     * each call.
+     */
+    @SubscribeEvent
+    public void onDataComponentsBound(DefaultDataComponentsBoundEvent event) {
+        CompTierRegistry.INSTANCE.initialize();
+        StorageBlacklist.INSTANCE.initialize();
+        MaterialBlacklist.INSTANCE.initialize();
+    }
+
+    // Per-player settings arrive via PlayerBoolConfigMessage; prune on disconnect so the map does
+    // not grow for the lifetime of the server.
     @SubscribeEvent
     public void onPlayerDisconnect(PlayerEvent.PlayerLoggedOutEvent event) {
-        //ConfigManager.serverPlayerConfigSettings.remove(event.player.getUniqueID());
+        PlayerConfig.serverPlayerConfigSettings.remove(event.getEntity().getUUID());
     }
 
-    @SubscribeEvent
-    public void onEntityJoinWorldEvent(EntityJoinLevelEvent event) {
-        if (!event.getLevel().isClientSide() || !(event.getEntity() instanceof Player))
-            return;
-
-        if (Minecraft.getInstance().player == null)
-            return;
-
-        UUID playerId = Minecraft.getInstance().player.getUUID();
-        if (event.getEntity().getUUID() == playerId) {
-            ChameleonServices.NETWORK.sendToServer(new PlayerBoolConfigMessage(playerId.toString(), "invertShift", ModClientConfig.INSTANCE.GENERAL.invertShift.get()));
-            ChameleonServices.NETWORK.sendToServer(new PlayerBoolConfigMessage(playerId.toString(), "invertClick", ModClientConfig.INSTANCE.GENERAL.invertClick.get()));
-        }
-    }
-
-    public static ResourceLocation rl(String path) {
-        return ResourceLocation.fromNamespaceAndPath(MOD_ID, path);
+    public static Identifier rl(String path) {
+        return Identifier.fromNamespaceAndPath(MOD_ID, path);
     }
 }

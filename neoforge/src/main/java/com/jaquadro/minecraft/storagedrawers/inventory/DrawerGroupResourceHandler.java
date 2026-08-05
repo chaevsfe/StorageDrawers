@@ -26,7 +26,6 @@ public class DrawerGroupResourceHandler implements ResourceHandler<ItemResource>
 
     int size;
     int[] slotOrder = new int[0];
-    boolean suspended = false;
 
     final List<DrawerWrapper> drawerWrappers = new ArrayList();
     private final RootCommitJournal setChangedJournal;
@@ -40,7 +39,6 @@ public class DrawerGroupResourceHandler implements ResourceHandler<ItemResource>
 
         storage.resizeSlotList();
         storage.slotOrder = group.getAccessibleDrawerSlots();
-        storage.suspended = storage.isSuspended();
 
         return storage;
     }
@@ -117,8 +115,11 @@ public class DrawerGroupResourceHandler implements ResourceHandler<ItemResource>
         return getDrawerWrapper(translateSlot(i)).extract(0, itemResource, amount, transactionContext);
     }
 
+    // Read live rather than off a field sampled in internalOf: these wrappers are cached per group
+    // and handed out repeatedly, so a snapshot taken when the handler was first requested would let
+    // a suspended drawer (upgrade swap, framing) keep serving inserts for the rest of its life.
     protected boolean isGroupValid () {
-        return !suspended && group.isGroupValid();
+        return !isSuspended() && group.isGroupValid();
     }
 
     public class DrawerWrapper extends ItemStackResourceHandler
@@ -131,11 +132,12 @@ public class DrawerGroupResourceHandler implements ResourceHandler<ItemResource>
 
         @Override
         public ItemResource getResource (int index) {
-            if (isGroupValid())
+            if (!isGroupValid())
                 return ItemResource.EMPTY;
 
             return super.getResource(index);
         }
+
 
         @Override
         protected ItemStack getStack () {

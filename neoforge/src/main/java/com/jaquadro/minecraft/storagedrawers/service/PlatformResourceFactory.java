@@ -31,7 +31,7 @@ public class PlatformResourceFactory implements ResourceFactory
 
     @Override
     public BlockEntityType.BlockEntitySupplier<BlockEntityControllerIO> createBlockEntityControllerIO () {
-        return BlockEntityControllerIO::new;
+        return PlatformBlockEntityControllerIO::new;
     }
 
     @Override
@@ -41,6 +41,6 @@ public class PlatformResourceFactory implements ResourceFactory
 
     @Override
     public BlockEntityType.BlockEntitySupplier<BlockEntityTrim> createBlockEntityTrim () {
-        return BlockEntityTrim::new;
+        return PlatformBlockEntityTrim::new;
     }
 }

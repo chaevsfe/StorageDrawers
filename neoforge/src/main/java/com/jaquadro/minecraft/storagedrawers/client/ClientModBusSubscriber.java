@@ -5,6 +5,7 @@ import com.jaquadro.minecraft.storagedrawers.StorageDrawers;
 import com.jaquadro.minecraft.storagedrawers.client.gui.ClientDetachedDrawerTooltip;
 import com.jaquadro.minecraft.storagedrawers.client.gui.ClientKeyringTooltip;
 import com.jaquadro.minecraft.storagedrawers.client.model.*;
+import com.jaquadro.minecraft.storagedrawers.client.model.decorator.MaterialModelDecorator;
 import com.jaquadro.minecraft.storagedrawers.client.renderer.BlockEntityDrawersRenderer;
 import com.jaquadro.minecraft.storagedrawers.client.renderer.BlockEntityFramingRenderer;
 import com.jaquadro.minecraft.storagedrawers.core.ModBlockEntities;
@@ -14,9 +15,7 @@ import com.jaquadro.minecraft.storagedrawers.inventory.DrawerScreen;
 import com.jaquadro.minecraft.storagedrawers.inventory.FramingTableScreen;
 import com.jaquadro.minecraft.storagedrawers.inventory.tooltip.DetachedDrawerTooltip;
 import com.jaquadro.minecraft.storagedrawers.inventory.tooltip.KeyringTooltip;
-import net.minecraft.client.renderer.block.BlockModelShaper;
-import net.minecraft.client.renderer.block.model.BlockStateModel;
-import net.minecraft.client.resources.model.MissingBlockModel;
+import net.minecraft.client.renderer.block.dispatch.BlockStateModel;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.api.distmarker.Dist;
@@ -83,6 +82,13 @@ public class ClientModBusSubscriber
             StorageDrawers.log.warn("Block objects not set in ModelBakeEvent.  Is your mod environment broken?");
             return;
         }
+
+        // This event is the once-per-model-load-cycle hook (including F3+T and resource-pack
+        // reloads). The static stores must not keep serving models baked against a dropped atlas,
+        // and everything they hold is repopulated below.
+        DrawerModelStore.clearCaches();
+        MaterialModelDecorator.clearCache();
+        ItemModelStore.models.clear();
 
         DrawerModelStore.getModelLocations().forEach(loc -> {
             DrawerModelStore.tryAddModel(loc, event.getBakingResult().blockStateModels().get(loc));
