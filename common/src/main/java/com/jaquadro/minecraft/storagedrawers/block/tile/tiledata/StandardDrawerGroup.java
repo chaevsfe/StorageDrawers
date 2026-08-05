@@ -396,6 +396,14 @@ public abstract class StandardDrawerGroup extends BlockEntityDataShim implements
             if (isMissing())
                 return false;
 
+            // A parked slot reads as empty, so without this it advertises itself as insertable and
+            // the first automation insert discards the raw NBT we promised to preserve -- including
+            // an insert that is only ever SIMULATED, since the discard happens in setStoredItem and
+            // no rollback path restores the parked bytes. Storing over a park stays possible by
+            // hand (canItemBeStoredManual), which is the documented way to give up on it.
+            if (unreadableItemTag != null && !manualStore)
+                return false;
+
             if (StorageBlacklist.INSTANCE.isBlacklisted(itemPrototype))
                 return false;
 

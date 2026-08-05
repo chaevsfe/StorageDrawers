@@ -69,13 +69,12 @@ public class DrawerGroupResourceHandler implements ResourceHandler<ItemResource>
         return i;
     }
 
-    protected boolean isSuspended () {
-        IDrawerAttributes attrs = group.getCapability(Capabilities.DRAWER_ATTRIBUTES);
-        if (attrs == null)
-            attrs = EmptyDrawerAttributes.EMPTY;
-
-        return attrs.isSuspended();
-    }
+    // Suspension is deliberately NOT checked here. It is a per-DRAWER attribute, and asking the
+    // GROUP for it is wrong twice over: a controller or controller IO never has the
+    // DRAWER_ATTRIBUTES capability registered at all (see PlatformCapabilities), so the answer was
+    // always false for exactly the setups where automation matters most; and resolving a block
+    // capability on every call put a getBlockState + getBlockEntity + provider lookup on the hopper
+    // hot path. The guard now lives per drawer in DrawerWrapper.insert/extract, matching Fabric.
 
     @Override
     public int size () {
@@ -115,11 +114,8 @@ public class DrawerGroupResourceHandler implements ResourceHandler<ItemResource>
         return getDrawerWrapper(translateSlot(i)).extract(0, itemResource, amount, transactionContext);
     }
 
-    // Read live rather than off a field sampled in internalOf: these wrappers are cached per group
-    // and handed out repeatedly, so a snapshot taken when the handler was first requested would let
-    // a suspended drawer (upgrade swap, framing) keep serving inserts for the rest of its life.
     protected boolean isGroupValid () {
-        return !isSuspended() && group.isGroupValid();
+        return group.isGroupValid();
     }
 
     public class DrawerWrapper extends ItemStackResourceHandler
@@ -184,6 +180,26 @@ public class DrawerGroupResourceHandler implements ResourceHandler<ItemResource>
             return group.getDrawer(slot).getMaxCapacity(resource.toStack());
         }
 
+        /**
+         * Reported capacity has to be the VOID-aware figure, or a full void drawer reads as full and
+         * NeoForge's hopper never even asks: VanillaInventoryCodeHooks.insertHook opens with
+         * ResourceHandlerUtil.isFull(handler) and bails, so the void branch in insert() below is
+         * never reached. Fabric has no such precheck, which is why void drawers work there.
+         *
+         * This overrides the reported capacity only. getCapacity() above stays the real figure,
+         * because ItemStackResourceHandler.insert clamps the inserted amount to it -- widening that
+         * one instead would let the clamp swallow the overflow and make the void branch dead code.
+         */
+        @Override
+        public long getCapacityAsLong (int index, ItemResource resource) {
+            if (!isGroupValid())
+                return 0;
+            if (!resource.isEmpty() && !isValid(resource))
+                return 0;
+
+            return group.getDrawer(slot).getAcceptingMaxCapacity(resource.toStack());
+        }
+
         private IDrawerAttributes getDrawerAttributes (IDrawerGroup group) {
             if (group == null)
                 return null;
@@ -215,6 +231,10 @@ public class DrawerGroupResourceHandler implements ResourceHandler<ItemResource>
         public int insert (int index, ItemResource resource, int amount, TransactionContext transaction) {
             if (!isGroupValid())
                 return 0;
+            // Suspension pauses automation IO, per drawer. This is the door vanilla hoppers and
+            // NeoForge transfer mods come through; getAttributes() is a cached field read.
+            if (group.getDrawer(slot).getAttributes().isSuspended())
+                return 0;
             if (!group.getDrawer(slot).canItemBeStored(resource.toStack()))
                 return 0;
 
@@ -244,6 +264,8 @@ public class DrawerGroupResourceHandler implements ResourceHandler<ItemResource>
         @Override
         public int extract (int index, ItemResource resource, int amount, TransactionContext transaction) {
             if (!isGroupValid())
+                return 0;
+            if (group.getDrawer(slot).getAttributes().isSuspended())
                 return 0;
             if (!group.getDrawer(slot).canItemBeExtracted(resource.toStack()))
                 return 0;

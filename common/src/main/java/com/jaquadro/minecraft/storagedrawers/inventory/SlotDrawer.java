@@ -28,7 +28,9 @@ public class SlotDrawer extends Slot
 
     @Override
     public boolean mayPlace (@NotNull ItemStack stack) {
-        return !stack.isEmpty() && drawer.canItemBeStored(stack);
+        // Manual: a player clicking a stack into a drawer slot is the deliberate-store path. It is
+        // what lets someone store over a locked-empty drawer, and over a parked unreadable payload.
+        return !stack.isEmpty() && drawer.canItemBeStoredManual(stack, null);
     }
 
     @Override

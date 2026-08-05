@@ -40,6 +40,16 @@ public class BlockEntityControllerIO extends BaseBlockEntity implements IDrawerG
         this(ModBlockEntities.CONTROLLER_IO.get(), pos, state);
     }
 
+    // The framed variant takes its material from block entity data, so an arriving data packet has
+    // to trigger a re-render -- this is the only RenderDataProvider that was missing the flag, and
+    // BaseBlockEntity.loadAdditional is the sole caller of markBlockForRenderUpdate. Without it a
+    // freshly placed framed controller IO meshes before its material arrives and renders unframed
+    // until something else dirties the section.
+    @Override
+    public boolean dataPacketRequiresRenderUpdate () {
+        return true;
+    }
+
     @Override
     public IDrawerGroup getDrawerGroup () {
         BlockEntityController controller = getController();

@@ -208,15 +208,20 @@ public class PlatformDecoratedModel<C extends ModelContext> extends ParentModel 
                 }
             }
 
-            if ((stack == null || !ItemStack.isSameItemSameComponents(stack, itemStack)) && parent != null) {
-                stack = itemStack;
-                model = new PlatformDecoratedModel<>(parent, itemStack);
-            }
-
+            // Resolve the baked parent BEFORE building the model, not after. ItemModelStore is filled
+            // during bake, so the parent is always available by the time anything renders -- but with
+            // the old order the very first update() for a stack found parent still null, emitted zero
+            // layers, and GuiItemAtlas cached that empty result under a key it then marks READY for
+            // the life of that stack instance. The result was a permanently blank GUI icon.
             if (parent == null) {
                 BlockStateModel stored = ItemModelStore.models.get(state);
                 if (stored instanceof PlatformDecoratedModel<?> p)
                     parent = p;
+            }
+
+            if ((stack == null || !ItemStack.isSameItemSameComponents(stack, itemStack)) && parent != null) {
+                stack = itemStack;
+                model = new PlatformDecoratedModel<>(parent, itemStack);
             }
 
             if (model != null) {

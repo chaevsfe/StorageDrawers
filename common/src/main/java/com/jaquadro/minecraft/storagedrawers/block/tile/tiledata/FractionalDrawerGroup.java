@@ -378,6 +378,12 @@ public class FractionalDrawerGroup extends BlockEntityDataShim implements IDrawe
         }
 
         public boolean canItemBeStored (int slot, @NotNull ItemStack itemPrototype, Predicate<ItemStack> predicate, boolean manualStore) {
+            // See StandardDrawerGroup.canItemBeStored: a parked payload reads as empty, and letting
+            // automation insert over it destroys raw NBT that no rollback can restore. The whole
+            // fractional payload is parked as one unit, so any slot insert would discard it.
+            if (hasUnreadablePayload() && !manualStore)
+                return false;
+
             if (StorageBlacklist.INSTANCE.isBlacklisted(itemPrototype))
                 return false;
 
