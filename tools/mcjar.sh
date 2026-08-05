@@ -1,5 +1,4 @@
 #!/bin/sh
-# Inspect the real MC 26.2 classes. 26.1+ ships unobfuscated, so names are final.
 #   tools/mcjar.sh find <regex>            -- list matching class names
 #   tools/mcjar.sh sig  <binary/name>      -- javap the class (public+protected)
 #   tools/mcjar.sh all  <binary/name>      -- javap everything incl. private

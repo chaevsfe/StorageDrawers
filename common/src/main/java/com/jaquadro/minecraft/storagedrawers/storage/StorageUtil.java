@@ -93,15 +93,12 @@ public class StorageUtil
         if (!ModCommonConfig.INSTANCE.UPGRADES.balanceUpgrade.enableUpgrade.get())
             return;
 
-        // Unlimited-vending drawers report MAX_VALUE stored and ignore count writes;
-        // including them corrupts the aggregate.
         List<IDrawer> balanceDrawers = drawers.filter(IDrawer::isEnabled)
             .filter(d -> !d.getAttributes().isUnlimitedVending())
             .toList();
         if (balanceDrawers.size() <= 1)
             return;
 
-        // Long math: a couple of near-MAX_VALUE drawers overflow an int aggregate.
         long aggCount = 0;
         for (IDrawer d : balanceDrawers)
             aggCount += d.getStoredItemCount();
@@ -115,8 +112,6 @@ public class StorageUtil
                     availDrawers += 1;
             }
             if (availDrawers == 0) {
-                // Aggregate exceeds total capacity (corrupt counts). Assign the excess to
-                // the first drawer instead of dividing by zero; its setter clamps.
                 newAmount[0] = (int) Math.min(Integer.MAX_VALUE, newAmount[0] + aggCount);
                 break;
             }

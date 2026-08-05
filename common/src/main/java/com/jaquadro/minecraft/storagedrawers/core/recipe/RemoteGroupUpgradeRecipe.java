@@ -18,9 +18,6 @@ public class RemoteGroupUpgradeRecipe extends ShapedRecipe
 {
     private static RemoteGroupUpgradeRecipe instance;
 
-    // Lazy singleton: the constructor dereferences ModItems, so construction must stay
-    // deferred past registry-init; and StreamCodec must hand back the same instance the
-    // MapCodec produces.
     public static RemoteGroupUpgradeRecipe instance () {
         if (instance == null)
             instance = new RemoteGroupUpgradeRecipe();

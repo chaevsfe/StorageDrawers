@@ -83,9 +83,6 @@ public class ClientModBusSubscriber
             return;
         }
 
-        // This event is the once-per-model-load-cycle hook (including F3+T and resource-pack
-        // reloads). The static stores must not keep serving models baked against a dropped atlas,
-        // and everything they hold is repopulated below.
         DrawerModelStore.clearCaches();
         MaterialModelDecorator.clearCache();
         ItemModelStore.models.clear();

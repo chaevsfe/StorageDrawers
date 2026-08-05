@@ -67,8 +67,6 @@ public abstract class StandardDrawerGroup extends BlockEntityDataShim implements
         int i = 0;
         for (var item : itemList) {
             if (i >= slots.length) {
-                // Corrupt or hand-edited NBT only; an exception here would make vanilla
-                // discard the whole block entity and wipe every slot on the next save.
                 com.jaquadro.minecraft.storagedrawers.ModServices.log.error(
                     "Drawer block entity NBT has more saved slots than the block supports; extra entries ignored");
                 break;
@@ -76,11 +74,6 @@ public abstract class StandardDrawerGroup extends BlockEntityDataShim implements
             slots[i++].deserializeNBT(item);
         }
 
-        // deserializeNBT goes through the *Raw setters, which deliberately skip the syncSlots()
-        // that setStoredItem/reset do -- so without this the accessible order stays whatever the
-        // constructor produced (plain 0..n, every slot empty at that point). A drawer holding
-        // iron in slot 2 then advertises slot 0 first after every chunk load, and the next hopper
-        // insert starts a SECOND iron slot instead of topping up the existing one.
         syncSlots();
     }
 
@@ -139,12 +132,6 @@ public abstract class StandardDrawerGroup extends BlockEntityDataShim implements
         private ItemStackMatcher matcher;
         private boolean missing;
 
-        // Raw "Item" NBT that no repair could decode, and the quantity saved alongside it.
-        // Held so a load failure never destroys data on the next save: the slot presents as
-        // empty, but both round-trip verbatim until either a codec that can read them arrives
-        // or a player stores something new here. The quantity deliberately does NOT live in
-        // the live count field: empty-slot operations (detaching the drawer, reset) zero that
-        // field legitimately and must not be able to touch the parked data.
         private CompoundTag unreadableItemTag;
         private int unreadableCount;
 
@@ -211,8 +198,6 @@ public abstract class StandardDrawerGroup extends BlockEntityDataShim implements
                 return this;
             }
 
-            // Storing a real item is the one sanctioned point where parked unreadable data
-            // is discarded -- reportUnreadable warns about exactly this when parking.
             unreadableItemTag = null;
             unreadableCount = 0;
 
@@ -403,11 +388,6 @@ public abstract class StandardDrawerGroup extends BlockEntityDataShim implements
             if (isMissing())
                 return false;
 
-            // A parked slot reads as empty, so without this it advertises itself as insertable and
-            // the first automation insert discards the raw NBT we promised to preserve -- including
-            // an insert that is only ever SIMULATED, since the discard happens in setStoredItem and
-            // no rollback path restores the parked bytes. Storing over a park stays possible by
-            // hand (canItemBeStoredManual), which is the documented way to give up on it.
             if (unreadableItemTag != null && !manualStore)
                 return false;
 
@@ -465,9 +445,6 @@ public abstract class StandardDrawerGroup extends BlockEntityDataShim implements
 
         public void deserializeNBT (ValueInput input) {
             CompoundTag rawItem = input.read("Item", CompoundTag.CODEC).orElse(null);
-            // Parse via the codec directly and accept only a FULL success: ValueInput.read
-            // hands back a failed decode's partial value, which silently strips whatever
-            // component failed instead of surfacing the loss.
             ItemStack stack = rawItem == null ? ItemStack.EMPTY
                 : LegacyStackCodec.PARKING_CODEC.parse(
                     input.lookup().createSerializationContext(NbtOps.INSTANCE), rawItem)
@@ -479,8 +456,6 @@ public abstract class StandardDrawerGroup extends BlockEntityDataShim implements
             if (rawItem != null && stack.isEmpty()) {
                 unreadableItemTag = rawItem;
                 unreadableCount = input.getIntOr("Count", 0);
-                // Keep the live count clean for a parked slot: it is the field empty-slot
-                // operations mutate, and the parked quantity must survive those.
                 count = 0;
                 LegacyStackCodec.reportUnreadable(rawItem);
             }

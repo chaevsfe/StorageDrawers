@@ -20,9 +20,6 @@ public class DetachedDrawerData implements IDrawer
     private int storageMult;
     private boolean heavy;
 
-    // Raw "Item" NBT that no repair could decode, plus its saved quantity -- preserved so
-    // that round-tripping this object (e.g. the upgrade crafting recipe re-serializing
-    // CUSTOM_DATA) never destroys data a load failed to read. Mirrors StandardDrawerGroup.
     private CompoundTag unreadableItemTag;
     private int unreadableCount;
 
@@ -171,8 +168,6 @@ public class DetachedDrawerData implements IDrawer
         storageMult = input.getIntOr("StorageMult", ModCommonConfig.INSTANCE.DRAWERS.baseStackStorage.get() * 8);
 
         setIsHeavy(input.getBooleanOr("Heavy", false));
-        // Parse via the codec directly and accept only a FULL success -- ValueInput.read
-        // hands back a failed decode's partial value, silently stripping the failed component.
         CompoundTag rawItem = input.read("Item", CompoundTag.CODEC).orElse(null);
         ItemStack stack = rawItem == null ? ItemStack.EMPTY
             : LegacyStackCodec.PARKING_CODEC.parse(

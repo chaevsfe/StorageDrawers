@@ -31,21 +31,10 @@ public class DrawerGroupResourceHandler implements ResourceHandler<ItemResource>
         return internalOf(group);
     }
 
-    // The slot list is deliberately NOT cached on this object. NeoForge's BlockCapabilityCache
-    // holds the handler instance and only re-runs this provider when something invalidates the
-    // position -- chunk load/unload, block-entity load/unload, placement, destruction. Adding or
-    // removing a drawer in a controller network is none of those (it happens at the DRAWER's
-    // position, not the controller's), and the mod never calls Level.invalidateCapabilities
-    // anywhere. Caching here left every modded pipe attached to a controller frozen at whatever
-    // the network looked like when it first resolved. Fabric never had this problem: its
-    // BlockApiCache re-invokes the provider on every lookup.
     static DrawerGroupResourceHandler internalOf (IDrawerGroup group) {
         return WRAPPERS.computeIfAbsent(group, DrawerGroupResourceHandler::new);
     }
 
-    // A plain field read on all three groups (BlockEntityController.drawerSlots,
-    // StandardDrawerGroup.order, BlockEntityControllerIO forwarding to its controller), which is
-    // why common's own DrawerItemHandler already calls it per operation rather than caching.
     private int[] slotOrder () {
         return group.getAccessibleDrawerSlots();
     }
@@ -58,8 +47,6 @@ public class DrawerGroupResourceHandler implements ResourceHandler<ItemResource>
     DrawerWrapper getDrawerWrapper (int index) {
         Objects.checkIndex(index, this.size());
 
-        // Grown on demand instead of up front, now that size() is live. Each wrapper's slot is
-        // its own list index, which is what makes getDrawerWrapper(translateSlot(i)) correct.
         while (drawerWrappers.size() <= index)
             drawerWrappers.add(new DrawerWrapper(drawerWrappers.size()));
 
@@ -75,13 +62,6 @@ public class DrawerGroupResourceHandler implements ResourceHandler<ItemResource>
 
         return i;
     }
-
-    // Suspension is deliberately NOT checked here. It is a per-DRAWER attribute, and asking the
-    // GROUP for it is wrong twice over: a controller or controller IO never has the
-    // DRAWER_ATTRIBUTES capability registered at all (see PlatformCapabilities), so the answer was
-    // always false for exactly the setups where automation matters most; and resolving a block
-    // capability on every call put a getBlockState + getBlockEntity + provider lookup on the hopper
-    // hot path. The guard now lives per drawer in DrawerWrapper.insert/extract, matching Fabric.
 
     @Override
     public int size () {
@@ -187,16 +167,6 @@ public class DrawerGroupResourceHandler implements ResourceHandler<ItemResource>
             return group.getDrawer(slot).getMaxCapacity(resource.toStack());
         }
 
-        /**
-         * Reported capacity has to be the VOID-aware figure, or a full void drawer reads as full and
-         * NeoForge's hopper never even asks: VanillaInventoryCodeHooks.insertHook opens with
-         * ResourceHandlerUtil.isFull(handler) and bails, so the void branch in insert() below is
-         * never reached. Fabric has no such precheck, which is why void drawers work there.
-         *
-         * This overrides the reported capacity only. getCapacity() above stays the real figure,
-         * because ItemStackResourceHandler.insert clamps the inserted amount to it -- widening that
-         * one instead would let the clamp swallow the overflow and make the void branch dead code.
-         */
         @Override
         public long getCapacityAsLong (int index, ItemResource resource) {
             if (!isGroupValid())
@@ -238,8 +208,6 @@ public class DrawerGroupResourceHandler implements ResourceHandler<ItemResource>
         public int insert (int index, ItemResource resource, int amount, TransactionContext transaction) {
             if (!isGroupValid())
                 return 0;
-            // Suspension pauses automation IO, per drawer. This is the door vanilla hoppers and
-            // NeoForge transfer mods come through; getAttributes() is a cached field read.
             if (group.getDrawer(slot).getAttributes().isSuspended())
                 return 0;
             if (!group.getDrawer(slot).canItemBeStored(resource.toStack()))

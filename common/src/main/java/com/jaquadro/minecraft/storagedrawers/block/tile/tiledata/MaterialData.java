@@ -52,9 +52,6 @@ public class MaterialData extends BlockEntityDataShim implements IFramedMaterial
     @NotNull
     private ItemStack materialTrim;
 
-    // Raw material NBT that no repair could decode, indexed MatB/MatS/MatF/MatT. Re-emitted
-    // on write so a load failure (e.g. a removed mod's material block) never destroys the
-    // bytes; the slot presents as empty until something can read them again.
     private final CompoundTag[] parkedMats = new CompoundTag[4];
 
     public MaterialData () {
@@ -169,9 +166,6 @@ public class MaterialData extends BlockEntityDataShim implements IFramedMaterial
         materialTrim = readMat(input, "MatT", 3);
     }
 
-    // Parse via the parking codec and keep the raw bytes on failure: ValueInput.read hands
-    // back a failed decode's partial value (silently stripping the failed component), and a
-    // fully-unreadable material would otherwise be dropped entirely on the next save.
     private ItemStack readMat (ValueInput input, String name, int idx) {
         parkedMats[idx] = null;
         CompoundTag raw = input.read(name, CompoundTag.CODEC).orElse(null);

@@ -109,8 +109,6 @@ public class FractionalDrawerGroup extends BlockEntityDataShim implements IDrawe
         private final ItemStackMatcher[] matchers;
         private int pooledCount;
 
-        // Original {Items, Count} NBT parked here when any tier failed to decode, so a load
-        // failure never destroys data on the next save. See deserializeNBT.
         private CompoundTag unreadablePayload;
 
         boolean hasUnreadablePayload () {
@@ -228,8 +226,6 @@ public class FractionalDrawerGroup extends BlockEntityDataShim implements IDrawe
 
             int oldCount = pooledCount;
 
-            // Long-safe: convRate * amount wraps int with high storage upgrades near
-            // MAX_VALUE, which would zero (or corrupt) the whole pool below.
             long newCount = (pooledCount % convRate[slot]) + (long) convRate[slot] * amount;
             long poolMax = (long) getMaxCapacity(0) * convRate[0];
             pooledCount = (int) Math.max(0, Math.min(newCount, Math.min(poolMax, Integer.MAX_VALUE)));
@@ -378,9 +374,6 @@ public class FractionalDrawerGroup extends BlockEntityDataShim implements IDrawe
         }
 
         public boolean canItemBeStored (int slot, @NotNull ItemStack itemPrototype, Predicate<ItemStack> predicate, boolean manualStore) {
-            // See StandardDrawerGroup.canItemBeStored: a parked payload reads as empty, and letting
-            // automation insert over it destroys raw NBT that no rollback can restore. The whole
-            // fractional payload is parked as one unit, so any slot insert would discard it.
             if (hasUnreadablePayload() && !manualStore)
                 return false;
 
@@ -587,8 +580,6 @@ public class FractionalDrawerGroup extends BlockEntityDataShim implements IDrawe
 
             if (unreadablePayload != null) {
                 if (hasContent) {
-                    // The player stored a new item family while the old one was unreadable;
-                    // the drawer has been legitimately reused, so the stash is now dead.
                     unreadablePayload = null;
                 } else {
                     output.store("Unreadable", CompoundTag.CODEC, unreadablePayload);
@@ -612,15 +603,10 @@ public class FractionalDrawerGroup extends BlockEntityDataShim implements IDrawe
             for (var slotTag : itemList) {
                 int slot = slotTag.getIntOr("Slot", 0);
                 if (slot < 0 || slot >= slotCount) {
-                    // Corrupt or hand-edited NBT; indexing would throw and cost the whole
-                    // block entity. Treat it as unreadable so the full payload parks below.
                     anyUnreadable = true;
                     continue;
                 }
 
-                // Parse via the codec directly and accept only a FULL success: ValueInput.read
-                // hands back a failed decode's partial value, which silently strips whatever
-                // component failed instead of surfacing the loss.
                 CompoundTag rawItem = slotTag.read("Item", CompoundTag.CODEC).orElse(null);
                 ItemStack stack = rawItem == null ? ItemStack.EMPTY
                     : LegacyStackCodec.PARKING_CODEC.parse(deserializeOps, rawItem).result().orElse(ItemStack.EMPTY);
@@ -636,16 +622,8 @@ public class FractionalDrawerGroup extends BlockEntityDataShim implements IDrawe
                     : new ItemStackMatcher(protoStack[slot]);
             }
 
-            // A compacting drawer's slots are tiers of one item family, so a partly readable
-            // group is meaningless. If any tier failed, park the WHOLE original list plus the
-            // pooled count and load empty: the bytes then survive every save, and each load
-            // retries the decode, so the group restores itself the moment a codec that can
-            // read it exists (a future repair, or the item's mod being reinstalled).
             if (anyUnreadable) {
                 CompoundTag payload = new CompoundTag();
-                // Capture the ORIGINAL list bytes via passthrough, not a re-decode: a
-                // re-decode drops entries a strict list codec cannot read, and the park's
-                // whole contract is byte-verbatim survival of exactly what failed to parse.
                 input.read("Items", com.mojang.serialization.Codec.PASSTHROUGH)
                     .ifPresent(dyn -> payload.put("Items",
                         (Tag) dyn.convert(net.minecraft.nbt.NbtOps.INSTANCE).getValue()));
@@ -679,10 +657,6 @@ public class FractionalDrawerGroup extends BlockEntityDataShim implements IDrawe
             }
         }
 
-        // A payload parked by an earlier failed load rides along under "Unreadable". Retry it
-        // on every load; the first time every entry decodes, the group repopulates and the
-        // stash is dropped. If live Items were also loaded, the drawer was reused -- the live
-        // contents win and the stash is dropped as dead.
         private void tryRecoverUnreadable (ValueInput input) {
             CompoundTag payload = input.read("Unreadable", CompoundTag.CODEC).orElse(null);
             if (payload == null)

@@ -34,8 +34,6 @@ public class AddUpgradeRecipe extends CustomRecipe
 {
     private static AddUpgradeRecipe instance;
 
-    // The recipe object is a singleton: StreamCodec must hand back the same instance the
-    // MapCodec produces, and construction is deferred past registry-init.
     public static AddUpgradeRecipe instance () {
         if (instance == null)
             instance = new AddUpgradeRecipe();
@@ -48,8 +46,6 @@ public class AddUpgradeRecipe extends CustomRecipe
             StreamCodec.<RegistryFriendlyByteBuf, AddUpgradeRecipe>of((buf, val) -> { }, buf -> instance()));
     }
 
-    // Recipe.assemble no longer receives a HolderLookup.Provider in 26.2, but the upgrade
-    // NBT round-trip needs one. Vanilla always calls matches() first, so stash it there.
     private HolderLookup.Provider lastRegistries;
 
     public AddUpgradeRecipe () { }

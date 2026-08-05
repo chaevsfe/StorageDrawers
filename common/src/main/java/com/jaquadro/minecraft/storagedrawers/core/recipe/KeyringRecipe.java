@@ -22,9 +22,6 @@ public class KeyringRecipe extends ShapedRecipe
 {
     private static KeyringRecipe instance;
 
-    // Lazy singleton: the constructor dereferences ModItems, so construction must stay
-    // deferred past registry-init; and StreamCodec must hand back the same instance the
-    // MapCodec produces.
     public static KeyringRecipe instance () {
         if (instance == null)
             instance = new KeyringRecipe();

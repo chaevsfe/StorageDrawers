@@ -1,11 +1,7 @@
 #!/usr/bin/env python3
 """Validate every accesswidener entry against the real Minecraft jar.
 
-An AW entry naming a class/member that no longer exists is a HARD mod-load failure,
-so this has to pass before the client will even reach the main menu.
-
 Usage: aw_check.py <file.accesswidener> [<file.accesswidener> ...]
-Run with no arguments it used to check nothing and still exit 0, which reads as a pass.
 """
 import re
 import subprocess
@@ -117,8 +113,7 @@ for awf in AW_FILES:
 
         if kind == "field":
             ftype = desc_to_java(desc)
-            # Exact declared-type match. A substring test here silently passes
-            # ItemStack against a field that is really ItemStackTemplate.
+            # Exact declared-type match; a substring test matches the wrong type.
             decl = None
             for ln in body.splitlines():
                 m = re.match(rf"\s*(?:[\w.$<>?\[\], ]+?\s+)?([\w.$]+(?:<[^;]*>)?(?:\[\])*)\s+{re.escape(name)}\s*;\s*$", ln)

@@ -1,10 +1,6 @@
 #!/usr/bin/env python3
 """Check every Minecraft/Mojang import in the mod against a real Minecraft jar.
 
-Compiling is the usual way to find dead API references, but the classpath is not
-always available mid-port. Every import is a fully-qualified name, so the jar itself
-answers the question directly: present, or gone.
-
 Usage: import_check.py <jar> <src-dir> [<src-dir> ...]
 """
 import collections
@@ -17,14 +13,11 @@ jar_path, src_dirs = sys.argv[1], sys.argv[2:]
 classes = {n[:-6].replace("/", ".") for n in zipfile.ZipFile(jar_path).namelist()
            if n.endswith(".class")}
 
-# Index by simple name so a missing import can be matched to its likely replacement.
 by_simple = collections.defaultdict(list)
 for c in classes:
     by_simple[c.rsplit(".", 1)[-1].split("$")[-1]].append(c)
 
-# Only namespaces that actually live in the Minecraft jar. com.mojang.serialization
-# (DataFixerUpper) and com.mojang.authlib ship as separate libraries, so checking them
-# against this jar reports false "missing".
+# DataFixerUpper and authlib ship separately, so they are not checkable against this jar.
 WATCHED = ("net.minecraft.", "com.mojang.blaze3d.", "com.mojang.math.")
 IMPORT_RE = re.compile(r"^\s*import\s+(?:static\s+)?([\w.$]+)\s*;", re.M)
 

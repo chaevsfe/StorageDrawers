@@ -52,16 +52,6 @@ import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 
-/**
- * Fabric binding for a decorated block model. The Fabric-specific surface is the FRAPI
- * {@link FabricBlockStateModel} interface; everything else lives in :common.
- *
- * The Fabric API is on the compile classpath as a plain {@code implementation} dependency and
- * declares no injected interfaces, so vanilla types do not carry FRAPI's interfaces at compile
- * time. Every call into one therefore goes through an explicit cast: FRAPI's own mixins add
- * {@code FabricBlockStateModel} to {@code BlockStateModel} and {@code FabricBlockGetter} to
- * {@code BlockGetter}, so the casts always succeed at runtime.
- */
 @Environment(EnvType.CLIENT)
 public class PlatformDecoratedModel<C extends ModelContext> extends ParentModel implements FabricBlockStateModel
 {
@@ -85,19 +75,6 @@ public class PlatformDecoratedModel<C extends ModelContext> extends ParentModel 
         this.stack = stack;
     }
 
-    /**
-     * Every pass is emitted through FRAPI's own default {@code emitQuads}, which walks the six
-     * cullable faces plus the unculled bucket, honours the cull test and applies vanilla's
-     * ambient-occlusion and shade-mode defaults.
-     *
-     * There is deliberately no per-pass render layer forced onto the emitter any more. As of 26.2
-     * the chunk section layer and the item sheet are properties of the quad, not of the emitter:
-     * {@code QuadEmitter.fromBakedQuad} stamps both from the quad's own
-     * {@code BakedQuad.MaterialInfo}, overwriting whatever the emitter was set to beforehand. The
-     * layer is chosen instead where the quad is built -- see
-     * {@code ReplacementBlockPart.resolveTransparency} in :common, which already honours the
-     * material's opacity and the renderTranslucentMaterials config.
-     */
     @Override
     public void emitQuads (QuadEmitter emitter, BlockAndTintGetter blockView, BlockPos pos, BlockState state, RandomSource random, Predicate<@Nullable Direction> cullTest) {
         if (state == null) {
@@ -123,8 +100,6 @@ public class PlatformDecoratedModel<C extends ModelContext> extends ParentModel 
             for (DecoratorRenderType renderType : decoratorRenderTypes)
                 decorator.emitQuads(supplier, emitModel, renderType);
         } catch (Exception e) {
-            // The entire framed/decorated geometry path. If this fires, drawers render
-            // as bare or missing blocks with no other symptom.
             ModServices.reportOnce("PlatformDecoratedModel.emitQuads", e);
         }
     }
@@ -208,11 +183,6 @@ public class PlatformDecoratedModel<C extends ModelContext> extends ParentModel 
                 }
             }
 
-            // Resolve the baked parent BEFORE building the model, not after. ItemModelStore is filled
-            // during bake, so the parent is always available by the time anything renders -- but with
-            // the old order the very first update() for a stack found parent still null, emitted zero
-            // layers, and GuiItemAtlas cached that empty result under a key it then marks READY for
-            // the life of that stack instance. The result was a permanently blank GUI icon.
             if (parent == null) {
                 BlockStateModel stored = ItemModelStore.models.get(state);
                 if (stored instanceof PlatformDecoratedModel<?> p)
@@ -244,9 +214,6 @@ public class PlatformDecoratedModel<C extends ModelContext> extends ParentModel 
                         ItemStackRenderState.LayerRenderState renderState = itemStackRenderState.newLayer();
                         layers.put(renderType, renderState);
 
-                        // No setRenderType any more: LayerRenderState.submit hands the raw quad
-                        // list to SubmitNodeCollector.submitItem and each quad's
-                        // MaterialInfo.itemRenderType() selects its own sheet.
                         renderState.setExtents(extents);
                         renderState.setLocalTransform(transform);
                     }
@@ -281,11 +248,6 @@ public class PlatformDecoratedModel<C extends ModelContext> extends ParentModel 
                 return MAP_CODEC;
             }
 
-            /**
-             * @param transform the accumulated local transform of any enclosing composite model.
-             *     It is handed straight to the layer, as CuboidItemModelWrapper does; ModelBakery
-             *     passes identity for a top-level model.
-             */
             @Override
             public ItemModel bake (BakingContext bakingContext, Matrix4fc transform) {
                 ModelBaker modelbaker = bakingContext.blockModelBaker();

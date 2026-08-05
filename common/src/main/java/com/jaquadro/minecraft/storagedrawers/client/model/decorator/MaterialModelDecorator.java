@@ -33,11 +33,9 @@ public abstract class MaterialModelDecorator<C extends FramedModelContext> exten
     protected final DrawerModelStore.FrameMatSet matSet;
     protected final boolean shaded;
 
-    // Concurrent: populated lazily from chunk-mesh worker threads.
     private static final Map<BlockStateModel, Map<Identifier, BlockStateModel>> replacementCache =
         new java.util.concurrent.ConcurrentHashMap<>();
 
-    /** Stale baked models must not survive a resource reload. */
     public static void clearCache () {
         replacementCache.clear();
     }
@@ -131,7 +129,6 @@ public abstract class MaterialModelDecorator<C extends FramedModelContext> exten
             else if (renderType == DecoratorRenderType.TRANSLUCENT)
                 layer = ChunkSectionLayer.TRANSLUCENT;
 
-            // Racing workers may build twice; putIfAbsent keeps one canonical instance.
             replacedModel = new SpriteReplacementModel(baseModel, material, layer);
             BlockStateModel prior = matCache.putIfAbsent(matName, replacedModel);
             if (prior != null)

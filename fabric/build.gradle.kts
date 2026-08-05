@@ -11,27 +11,17 @@ plugins {
 
 dependencies {
     minecraft("com.mojang:minecraft:${Versions.minecraft}")
-    // No mappings(): 26.1 is the first unobfuscated Minecraft release, so there is
-    // nothing to remap against and Loom no longer remaps.
     implementation("net.fabricmc:fabric-loader:${Versions.fabricLoader}")
     implementation("net.fabricmc.fabric-api:fabric-api:${Versions.fabric}")
 
     compileOnly("fuzs.forgeconfigapiport:forgeconfigapiport-fabric:26.1.5") {
-        // FCAP 26.1.5 is built against MC 26.1.2 and pulls fabric-api 0.149.1+26.1.2,
-        // which Gradle would promote over our 0.145.1+26.1 on the compile classpath --
-        // Loom then puts BOTH module sets on the dev launch classpath and the client
-        // crashes on cross-version fabric-api internals. We only need FCAP's own classes.
         exclude(group = "net.fabricmc.fabric-api")
     }
 
-    //compileOnlyApi("mezz.jei:jei-${Versions.minecraft}-fabric-api:19.8.2.99")
-    //runtimeOnly("mezz.jei:jei-${Versions.minecraft}-fabric:19.8.2.99")
 }
 
 loom {
     accessWidenerPath = file("src/main/resources/storagedrawers.fabric.accesswidener")
-    // No mixin block: the mod declares "mixins": [] and ships no mixins.json, and
-    // refmaps are meaningless against an unobfuscated 26.x.
     runs {
         named("client") {
             client()
@@ -42,7 +32,6 @@ loom {
     }
 }
 
-// CHANGELOG.last.md is kept local-only (not committed); guard so a fresh clone still builds.
 val lastChangelog = File(rootDir, "CHANGELOG.last.md").takeIf { it.exists() }?.readText() ?: ""
 
 tasks.create<TaskPublishCurseForge>("publishCurseForge") {

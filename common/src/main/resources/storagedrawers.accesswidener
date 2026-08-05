@@ -1,19 +1,5 @@
 accessWidener   v1  official
 
-# Verified entry-by-entry against the real MC 26.1 client jar (javap), 2026-08-03.
-# An entry naming a member that no longer exists is a HARD mod-load failure, so any
-# edit here must be re-checked against the jar, not assumed.
-#
-# Dropped in the 26.2 port:
-#   AbstractContainerScreen.renderSlotHighlightFront -> now extractSlotHighlightFront;
-#     had zero call sites in this mod, so the entry is simply gone.
-#   BlockModel.getElements -> BlockModel is now an interface; the JSON model type is
-#     net.minecraft.client.resources.model.cuboid.CuboidModel, a record whose
-#     geometry() accessor is already public. No widening needed.
-#   GuiGraphics.<init> -> GuiGraphics is now GuiGraphicsExtractor. Its 4-arg
-#     (Minecraft, GuiRenderState, int, int) constructor is public, but StorageGuiGraphics
-#     needs the pose-carrying 5-arg one, which is private — hence the entry below.
-
 accessible class net/minecraft/world/level/block/entity/BlockEntityType$BlockEntitySupplier
 accessible class net/minecraft/world/inventory/MenuType$MenuSupplier
 
@@ -26,7 +12,5 @@ accessible field net/minecraft/world/item/crafting/ShapedRecipe pattern Lnet/min
 accessible field net/minecraft/world/item/crafting/ShapedRecipe result Lnet/minecraft/world/item/ItemStackTemplate;
 accessible field net/minecraft/world/ticks/LevelTicks allContainers Lit/unimi/dsi/fastutil/longs/Long2ObjectMap;
 
-# 26.1: GuiRenderState lives as a private field on GuiGraphicsExtractor itself
-# (in 26.2 it moves onto Gui). StorageGuiGraphics reads it off the wrapped extractor.
 accessible field net/minecraft/client/gui/GuiGraphicsExtractor guiRenderState Lnet/minecraft/client/renderer/state/gui/GuiRenderState;
 accessible field com/mojang/blaze3d/vertex/PoseStack$Pose trustedNormals Z

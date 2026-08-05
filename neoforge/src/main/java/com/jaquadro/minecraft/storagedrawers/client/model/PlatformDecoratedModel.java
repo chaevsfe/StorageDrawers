@@ -47,14 +47,6 @@ import java.util.*;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
-/**
- * NeoForge binding for a decorated block model. The loader-specific surface is
- * {@link DynamicBlockStateModel}, which is how a model gets level/pos context at all — vanilla's
- * BlockStateModel is only ever handed a RandomSource. Everything else lives in :common.
- *
- * Render data is read from the model data snapshot rather than from the block entity: collectParts
- * runs on a meshing worker thread. See {@link NeoforgeModelData}.
- */
 public class PlatformDecoratedModel<C extends ModelContext> extends ParentModel implements DynamicBlockStateModel
 {
     private final ModelDecorator<C> decorator;
@@ -77,12 +69,6 @@ public class PlatformDecoratedModel<C extends ModelContext> extends ParentModel 
         this.stack = stack;
     }
 
-    /**
-     * Emitted once per decorator pass, exactly as the Fabric binding does. The pass is not a render
-     * layer any more — as of 26.x the chunk section layer is a property of each quad's MaterialInfo,
-     * stamped where the quad is built (see ReplacementBlockPart.resolveTransparency in :common).
-     * The pass survives only as a selector telling the decorator which subset of geometry to emit.
-     */
     @Override
     public void collectParts (BlockAndTintGetter level, BlockPos pos, BlockState state, RandomSource random, List<BlockStateModelPart> parts) {
         Object renderData = renderData(level, pos);
@@ -105,8 +91,6 @@ public class PlatformDecoratedModel<C extends ModelContext> extends ParentModel 
             for (DecoratorRenderType renderType : decoratorRenderTypes)
                 decorator.emitQuads(supplier, emitModel, renderType);
         } catch (Exception e) {
-            // The entire framed/decorated geometry path. If this fires, drawers render as bare or
-            // missing blocks with no other symptom.
             ModServices.reportOnce("PlatformDecoratedModel.collectParts", e);
         }
     }
@@ -133,11 +117,6 @@ public class PlatformDecoratedModel<C extends ModelContext> extends ParentModel 
         return particleMaterial();
     }
 
-    /**
-     * @return the block entity's render data snapshot, or null when there is none — which is the
-     *     normal case for a position whose model data has not been refreshed yet, and the signal to
-     *     fall back to the undecorated parent model.
-     */
     private static @Nullable Object renderData (@Nullable BlockAndTintGetter level, BlockPos pos) {
         if (level == null)
             return null;
@@ -198,9 +177,6 @@ public class PlatformDecoratedModel<C extends ModelContext> extends ParentModel 
                 }
             }
 
-            // Resolve the baked parent before building the item model, not after: the models map is
-            // populated during the bake that has already finished by the time any item is drawn, and
-            // resolving second costs a frame of undecorated rendering on every new stack.
             if (parent == null) {
                 BlockStateModel stored = ItemModelStore.models.get(state);
                 if (stored instanceof PlatformDecoratedModel<?> p)
@@ -233,9 +209,6 @@ public class PlatformDecoratedModel<C extends ModelContext> extends ParentModel 
                         ItemStackRenderState.LayerRenderState renderState = itemStackRenderState.newLayer();
                         layers.put(renderType, renderState);
 
-                        // No setRenderType any more: LayerRenderState.submit hands the raw quad list
-                        // to SubmitNodeCollector.submitItem and each quad's MaterialInfo.itemRenderType()
-                        // selects its own sheet.
                         renderState.setExtents(extents);
                         renderState.setLocalTransform(transform);
                     }
@@ -270,11 +243,6 @@ public class PlatformDecoratedModel<C extends ModelContext> extends ParentModel 
                 return MAP_CODEC;
             }
 
-            /**
-             * @param transform the accumulated local transform of any enclosing composite model. It is
-             *     handed straight to the layer, as CuboidItemModelWrapper does; ModelBakery passes
-             *     identity for a top-level model.
-             */
             @Override
             public ItemModel bake (BakingContext bakingContext, Matrix4fc transform) {
                 ModelBaker modelbaker = bakingContext.blockModelBaker();
@@ -287,7 +255,6 @@ public class PlatformDecoratedModel<C extends ModelContext> extends ParentModel 
 
             @Override
             public void resolveDependencies (Resolver resolver) {
-                // Made from meta parts, nothing to resolve
             }
         }
     }

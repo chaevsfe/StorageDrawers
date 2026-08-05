@@ -29,10 +29,6 @@ public class PlayerEventListener
 		if (!ModCommonConfig.INSTANCE.DRAWERS.anyHeavyDrawers())
 			return;
 
-		// getOriginalStack(), not getItemEntity().getItem(): Post fires AFTER
-		// Inventory.add() has drained the entity's stack down to the remainder, so the live
-		// stack is empty on any complete pickup and nothing would ever be recognised as heavy.
-		// NeoForge keeps the pre-pickup copy on the event for exactly this reason.
 		checkItemDebuf(event.getOriginalStack(), event.getPlayer());
 	}
 
@@ -42,10 +38,6 @@ public class PlayerEventListener
 		if(event.getEntity().tickCount % 60 != 0)
 			return;
 
-		// PlayerTickEvent fires on BOTH logical sides. Fabric drives this from
-		// ServerTickEvents.END_SERVER_TICK over the player list, so it is server-only there;
-		// without this guard the client would scan its own inventory and apply a duplicate
-		// client-side slowness on top of the one the server already sends.
 		if (!(event.getEntity() instanceof ServerPlayer player))
 			return;
 
@@ -55,8 +47,6 @@ public class PlayerEventListener
 			return;
 
 		// TODO: What is getAllSlots
-		//for(var s : player.getAllSlots()) {
-		//	if (checkItemDebuf(s, player))
 		//		return;
 		//}
 

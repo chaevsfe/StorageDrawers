@@ -148,9 +148,6 @@ public class DrawerModelStore
     public static final FrameMatSet FramedTrimMaterials = new FrameMatSet()
         .sidePart(DynamicPart.FRAMED_TRIM_SIDE).trimPart(DynamicPart.FRAMED_TRIM_TRIM);
 
-    // Concurrent: written during parallel model bake and lazily from chunk-mesh worker
-    // threads. ConcurrentHashMap forbids null values, so "registered but not yet baked"
-    // lives in locationStore rather than a null placeholder in modelStore.
     private static final Map<BlockState, BlockStateModel> modelStore = new java.util.concurrent.ConcurrentHashMap<>();
     private static final Map<BlockState, Map<BlockState, BlockStateModel>> replacementStore = new java.util.concurrent.ConcurrentHashMap<>();
     private static final Set<BlockState> locationStore = java.util.concurrent.ConcurrentHashMap.newKeySet();
@@ -295,13 +292,6 @@ public class DrawerModelStore
         return loc;
     }
 
-    /** Model stores survive resource reloads as static state; stale baked models reference
-     *  dropped atlases. Called at the start of every model-load cycle.
-     *
-     *  locationStore is deliberately NOT cleared: it is registration data, not a cache. It holds
-     *  BlockStates, which outlive any resource reload, and it is filled exactly once from the static
-     *  initializer below. Clearing it emptied it permanently after the first reload, which made
-     *  tryAddModel a no-op and quietly demoted every overlay lookup to the getModel fallback. */
     public static void clearCaches () {
         modelStore.clear();
         replacementStore.clear();
@@ -428,7 +418,6 @@ public class DrawerModelStore
         if (replacementModel == null)
             return model;
 
-        // Racing workers may build twice; putIfAbsent keeps one canonical instance.
         BlockStateModel merged = new SpriteReplacementModel(model, replacementModel, ChunkSectionLayer.CUTOUT);
         BlockStateModel prior = store.putIfAbsent(replaceLoc, merged);
         return prior != null ? prior : merged;

@@ -315,8 +315,6 @@ public class BlockEntityController extends BaseBlockEntity implements IDrawerGro
                 }
             }
         } catch (Exception e) {
-            // Touches the access-widened LevelTicks.allContainers — a prime suspect if
-            // controller binding silently stops validating after a version bump.
             ModServices.reportOnce("BlockEntityController.scheduleValidationTick", e);
         }
     }
@@ -1146,9 +1144,6 @@ public class BlockEntityController extends BaseBlockEntity implements IDrawerGro
                 }
             }
 
-            // Rebalance whenever balanced drawers were touched -- including the common case
-            // where primary records fully satisfy the request, which previously skipped it --
-            // and never during simulation, which must not mutate state.
             if (!simulate && !rebalance.isEmpty())
                 StorageUtil.rebalanceDrawers(rebalance.stream());
 

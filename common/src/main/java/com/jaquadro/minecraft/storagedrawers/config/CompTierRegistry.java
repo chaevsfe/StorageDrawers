@@ -33,27 +33,12 @@ public class CompTierRegistry
     }
 
     private final List<Record> records = new ArrayList<>();
-    // Every rule ever registered, kept for the lifetime of the game. The records are rebuilt
-    // from scratch each time initialize() runs, so the rules have to outlive them.
     private final List<String> knownRules = new ArrayList<>();
-    // Non-null only while initialize() is running. The config onLoad callback applies the
-    // config rules and the replay loop would then apply the same rules a second time; this
-    // makes each rule take effect once per rebuild instead of resolving and logging twice.
     private Set<String> appliedThisPass;
     private boolean initialized;
 
     public CompTierRegistry () { }
 
-    /**
-     * Builds the compacting rules, and rebuilds them on every later call.
-     *
-     * This cannot run at mod init on 26.2. Every rule is a pair of ItemStacks, and the
-     * ItemStack constructor reads the item's data components eagerly — components are bound
-     * during datapack load, so any earlier call throws
-     * {@code NullPointerException: Components not bound yet}. The caller drives this from a
-     * datapack-load hook, which also fires again on every reload; hence the rebuild rather
-     * than a one-shot guard.
-     */
     public void initialize () {
         records.clear();
         initialized = true;

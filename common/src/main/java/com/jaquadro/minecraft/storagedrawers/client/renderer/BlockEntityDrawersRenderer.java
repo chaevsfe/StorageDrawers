@@ -316,13 +316,6 @@ public class BlockEntityDrawersRenderer implements BlockEntityRenderer<BlockEnti
 
             BlockDrawers block = (BlockDrawers)renderState.blockState.getBlock();
 
-            // Upstream looped over `count`, which is clamped to 1 for a comp drawer so the pooled
-            // bar is drawn once. The port looped over every slot instead; today that is invisible
-            // because the comp indicator geometry has zero-width placeholder entries for slots
-            // 1..n, but it is only luck, and a resource pack supplying real geometry there would
-            // draw a bar per slot. indGeometry is sized by BlockDrawers.getDrawerCount(), so also
-            // clamp to its length rather than trust the render state: an AIOOBE thrown out of
-            // submit() becomes a crash report, not a dropped frame.
             int slots = Math.min(count, block.indGeometry.length);
             for (int i = 0; i < slots; i++) {
                 DrawersRenderState.SlotState slot = renderState.items.get(i);
@@ -360,26 +353,6 @@ public class BlockEntityDrawersRenderer implements BlockEntityRenderer<BlockEnti
             }
         }
 
-        /**
-         * Length of the lit part of one fill bar, snapped to whole texels of the indicator sprite
-         * ({@code step} is how many texels the bar spans -- 16 for the 4px horizontal bar on a
-         * 1x1 full drawer, whose sprite is 64x64).
-         *
-         * Upstream truncated {@code step * stored / capacity} in int arithmetic, so a drawer less
-         * than 1/step full produced 0 and the caller's {@code xCur > x1} guard emitted no quad at
-         * all. That is the reported "fill level indicator does not render": with storage upgrades
-         * a 1x1 drawer holds 20480, so it took 1280 items before the bar showed its first texel,
-         * and below that the feature is indistinguishable from a missing upgrade or a dead
-         * renderer. Clamp the floor to one texel whenever the drawer holds anything.
-         *
-         * This changes exactly one output -- 0 becomes 1 -- and leaves every other fill level
-         * byte-identical to upstream. Empty still draws nothing, so "empty" and "not empty" stay
-         * visually distinct. The upper clamp guards the UV window: stored can briefly exceed
-         * capacity when a storage upgrade is pulled, and the caller feeds this value straight into
-         * the sprite's u/v interpolation. The multiply is widened to long because
-         * {@code step * storedCount} overflows int for a large enough pooled count, which would
-         * flip the bar to a negative length.
-         */
         private static float getIndEnd (int storedCount, int maxCapacity, int slot, float x, float w, int step) {
             if (maxCapacity <= 0 || storedCount <= 0 || step <= 0)
                 return x;

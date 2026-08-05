@@ -113,9 +113,6 @@ public class DrawerModelGeometry
 
         int drawerCount = block.getDrawerCount();
         if (drawerCount > info.size()) {
-            // Leaving the geometry at its AABB(0,0,0,0,0,0) default renders every item
-            // icon, count and fill bar at zero size — visible as "the drawer face is
-            // blank", with nothing in the log to explain it. Say so.
             ModServices.log.error(
                 "{} geometry for {} has {} element(s) but the block has {} drawer(s); "
                     + "those slots will render at zero size",

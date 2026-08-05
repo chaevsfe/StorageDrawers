@@ -8,6 +8,5 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class ItemModelStore
 {
-    // Concurrent: written during parallel model bake.
     public static Map<BlockState, BlockStateModel> models = new ConcurrentHashMap<>();
 }

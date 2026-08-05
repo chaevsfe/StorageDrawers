@@ -29,9 +29,6 @@ neoForge {
     }
 }
 
-// ModDevGradle's run tasks are plain JavaExec, which defaults to an empty stdin -- unlike Loom's,
-// which inherits it. Without this the dedicated server accepts no console commands at all, so
-// there is no way to drive a QA session ("tail -f run/cmds.txt | ./gradlew :neoforge:runServer").
 tasks.named<JavaExec>("runServer") {
     standardInput = System.`in`
 }
@@ -39,8 +36,6 @@ tasks.named<JavaExec>("runServer") {
 dependencies {
     // JEI
     // runtimeOnly("mezz.jei:jei-1.21.9-neoforge:25.0.0.2")
-    // JADE — 26.1.8 covers the whole 26.1 patch line (26.1, 26.1.1, 26.1.2), matching the jar we
-    // ship. On the 26.2 branch this is 26.2.8+neoforge.
     compileOnly("maven.modrinth:jade:26.1.8+neoforge")
 }
 
@@ -64,8 +59,6 @@ modrinth {
     projectId.set(Properties.modrinthProjectId)
     changelog.set((File(rootDir, "CHANGELOG.last.md").takeIf { it.exists() }?.readText() ?: ""))
     versionName.set("${Properties.name}-${Versions.minecraft}-neoforge-$version")
-    // Modrinth version numbers are unique per project, and :fabric already claims the bare
-    // "<mc>-<mod>" form, so a loader suffix is required for both files to exist side by side.
     versionNumber.set("${Versions.minecraft}-${Versions.mod}+neoforge")
     versionType.set(Properties.distRelease)
     gameVersions.set(Properties.distGameVersions.split(','))

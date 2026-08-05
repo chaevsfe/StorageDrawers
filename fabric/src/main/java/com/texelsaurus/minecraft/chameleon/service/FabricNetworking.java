@@ -35,7 +35,6 @@ public class FabricNetworking implements ChameleonNetworking
     @Override
     public void sendToPlayersNear (ChameleonPacket packet, ServerLevel level, double x, double y, double z, double radius) {
         for (ServerPlayer player : level.players()) {
-            // distSqr returns a SQUARED distance; radius is in blocks.
             if (player.blockPosition().distSqr(new BlockPos((int)x, (int)y, (int)z)) <= radius * radius)
                 sendToPlayer(packet, player);
         }

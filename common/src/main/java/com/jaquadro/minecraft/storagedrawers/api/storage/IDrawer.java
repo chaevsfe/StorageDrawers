@@ -179,11 +179,6 @@ public interface IDrawer
         return false;
     }
 
-    /**
-     * Whether this drawer holds parked unreadable raw NBT (data preserved verbatim after a
-     * failed decode). Such a drawer presents as empty but must not be treated as contentless
-     * by anything that would discard its serialized state, e.g. block drops.
-     */
     default boolean hasParkedContents () {
         return false;
     }

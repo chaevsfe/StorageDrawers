@@ -129,11 +129,6 @@ public class CompactingHelper
         }
 
         List<ItemStack> candidates = new ArrayList<>();
-        // Keyed by Item, not ItemStack: ItemStack overrides neither equals nor hashCode, so an
-        // ItemStack-keyed map only ever answers to the exact instance that was put in it. The
-        // mod-namespace lookup below hands back a stack built with `new ItemStack(item)`, which
-        // never is that instance, so the get() returned null and unboxing it into Result's int
-        // threw -- a hopper feeding a compacting drawer took the whole server down with it.
         Map<Item, Integer> candidatesRate = new HashMap<>();
 
         if (world instanceof ServerLevel serverWorld) {
@@ -159,7 +154,6 @@ public class CompactingHelper
                         // TODO: ItemStackOreMatcher.areItemsEqual(match, comp, true)
                         if (ItemStackMatcher.areItemsEqual(match, comp) && comp.getCount() == recipeSize) {
                             candidates.add(match);
-                            // First recipe found wins, matching the candidates.get(0) fallback below.
                             candidatesRate.putIfAbsent(match.getItem(), recipeSize);
 
                             if (!world.isClientSide() && debugTrace)

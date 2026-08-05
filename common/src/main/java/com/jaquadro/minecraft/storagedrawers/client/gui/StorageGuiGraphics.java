@@ -21,12 +21,6 @@ public class StorageGuiGraphics extends GuiGraphicsExtractor
     public ItemStack overrideStack;
 
     public StorageGuiGraphics (Minecraft minecraft, GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
-        // 26.1: GuiRenderState has no home on Gui/GameRenderer yet (that comes in 26.2) --
-        // it lives as a private field on GuiGraphicsExtractor itself, access-widened here.
-        // Reading it off the wrapped graphics guarantees we share the very instance the
-        // screen's own extractor draws into. The pose-carrying 5-arg constructor is private
-        // (access-widened); its last two ints are mouseX/mouseY, NOT gui dimensions --
-        // guiWidth()/guiHeight() are derived live from the Window and are stored nowhere.
         super(minecraft, graphics.pose(), graphics.guiRenderState, mouseX, mouseY);
 
         this.baseGraphics = graphics;

@@ -81,10 +81,6 @@ public class BlockEntityFramingTable extends BaseBlockEntity implements Nameable
         return inventory;
     }
 
-    // Raw slot NBT that no repair could decode. These slots hold real player items;
-    // ValueInput.read would strip a failing component silently, and a fully-unreadable item
-    // would be dropped on the next save. A real item occupying the slot at save time wins
-    // over the parked bytes (the slot was legitimately reused).
     private CompoundTag parkedInput;
     private CompoundTag parkedResult;
 
@@ -167,10 +163,6 @@ public class BlockEntityFramingTable extends BaseBlockEntity implements Nameable
                 if (!Block.isShapeFullBlock(state.getShape(null, null)))
                     return false;
             } catch (Exception e) {
-                // Intentionally silent, and NOT a reportOnce site: probing getShape with a
-                // null level/pos throws for any block whose shape is position-dependent.
-                // That is an expected, frequent outcome here — such a block simply isn't
-                // provably a full cube, so it falls through to the remaining checks.
             }
         }
 
@@ -359,8 +351,6 @@ public class BlockEntityFramingTable extends BaseBlockEntity implements Nameable
         public void setChanged () {
             rebuildResult();
             this.entity.setChanged();
-            // setChanged only marks the chunk dirty; other players need the update packet
-            // or the table-top renderer shows stale items for them.
             this.entity.markBlockForUpdate();
         }
 

@@ -23,8 +23,6 @@ public class PersonalKeyRecipe extends CustomRecipe
 {
     private static PersonalKeyRecipe instance;
 
-    // Singleton: StreamCodec must hand back the same instance the MapCodec produces.
-    // Safe here because the recipe's shape is resolved from config at call time, not construction.
     public static PersonalKeyRecipe instance () {
         if (instance == null)
             instance = new PersonalKeyRecipe();

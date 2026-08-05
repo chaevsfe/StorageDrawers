@@ -34,10 +34,6 @@ public class StorageDrawersClient implements ClientModInitializer
 
         ModelLoadingPlugin.register(new ModelLoadPlugin());
 
-        // MC 26.2: there is no per-block render-layer registry. Each quad's chunk section layer is
-        // derived from its sprite's transparency at bake time (BakedQuad.MaterialInfo.of ->
-        // ChunkSectionLayer.byTransparency), so no explicit CUTOUT assignment is possible here.
-
         MenuScreens.register(ModContainers.DRAWER_CONTAINER_1.get(), DrawerScreen.Slot1::new);
         MenuScreens.register(ModContainers.DRAWER_CONTAINER_2.get(), DrawerScreen.Slot2::new);
         MenuScreens.register(ModContainers.DRAWER_CONTAINER_4.get(), DrawerScreen.Slot4::new);
@@ -45,9 +41,6 @@ public class StorageDrawersClient implements ClientModInitializer
         MenuScreens.register(ModContainers.DRAWER_CONTAINER_COMP_3.get(), DrawerScreen.Compacting3::new);
         MenuScreens.register(ModContainers.FRAMING_TABLE.get(), FramingTableScreen::new);
 
-        // Forge/NeoForge send these on entity join; without them the server keeps the
-        // default invertShift/invertClick and executes the opposite of what the client
-        // predicts for shift/click interactions.
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> client.execute(() -> {
             if (client.player == null)
                 return;

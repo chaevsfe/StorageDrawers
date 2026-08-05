@@ -95,8 +95,6 @@ public class ModelLoadPlugin implements ModelLoadingPlugin
 
     @Override
     public void initialize (Context pluginContext) {
-        // initialize runs once per model-load cycle (including F3+T / resource-pack
-        // reloads); the static stores must not serve models baked against dropped atlases.
         com.jaquadro.minecraft.storagedrawers.client.model.DrawerModelStore.clearCaches();
         com.jaquadro.minecraft.storagedrawers.client.model.decorator.MaterialModelDecorator.clearCache();
         ItemModelStore.models.clear();

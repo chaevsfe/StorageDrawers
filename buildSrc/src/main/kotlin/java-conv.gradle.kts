@@ -52,8 +52,6 @@ repositories {
             includeGroupAndSubgroups("curse.maven")
         }
     }
-    // Jade lives here. A curse.maven coordinate is a single opaque file id, which cannot express
-    // "the build for this Minecraft line" and silently keeps resolving after it stops matching.
     maven("https://api.modrinth.com/maven") {
         name = "Modrinth"
         content {
@@ -85,8 +83,6 @@ tasks {
     named<JavaCompile>("compileJava").configure {
         options.encoding = StandardCharsets.UTF_8.toString()
         options.release.set(Versions.java.toInt())
-        // javac stops reporting at 100 errors by default, which reads as a plateau and
-        // hides whether the port is actually converging. Report them all.
         options.compilerArgs.addAll(listOf("-Xmaxerrs", "10000"))
     }
     named<Javadoc>("javadoc").configure {

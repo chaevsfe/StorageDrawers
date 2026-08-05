@@ -6,8 +6,6 @@ import net.minecraft.world.level.block.state.BlockState;
 
 public class FramingRenderState extends BlockEntityRenderState
 {
-    // BlockEntityRenderState.blockState became private in 26.2 with no accessor, so
-    // renderers that need the state must capture it themselves during extraction.
     public BlockState blockState;
 
     public ItemStackRenderState mainSlotItem;

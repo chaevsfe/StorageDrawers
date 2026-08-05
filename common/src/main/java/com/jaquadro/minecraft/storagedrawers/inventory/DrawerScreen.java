@@ -86,20 +86,6 @@ public class DrawerScreen extends AbstractContainerScreen<ContainerDrawers>
         menu.activeGuiGraphics = null;
         storageGuiGraphics.overrideStack = ItemStack.EMPTY;
 
-        // 26.2: "deferred" GUI elements -- the slot tooltip, hovered/clickable text effects and
-        // the IME preedit overlay -- are parked in PRIVATE per-instance fields of whichever
-        // GuiGraphicsExtractor they were set on, and are only emitted by extractDeferredElements()
-        // reading those same fields. Screen.extractRenderStateWithTooltipAndSubtitles flushes the
-        // BASE extractor it owns, but AbstractContainerScreen.extractTooltip defers onto whatever
-        // extractor was handed to extractRenderState -- our wrapper. Without this call the drawer
-        // slot tooltip is built every frame and thrown away.
-        //
-        // Flushing here matches vanilla's position in the sequence exactly (immediately after
-        // extractRenderState, before the base flush), so strata and pose state are unchanged.
-        // The base flush that follows finds its own fields null and is a no-op -- nothing is
-        // emitted twice. This must stay AFTER the two cleanup lines above: a tooltip may itself
-        // draw item stacks, and a stale overrideStack would make the identity test in
-        // StorageGuiGraphics.itemDecorations misfire on them.
         storageGuiGraphics.extractDeferredElements(x, y, f);
     }
 

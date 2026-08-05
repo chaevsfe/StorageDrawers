@@ -36,11 +36,6 @@ public record PlayerBoolConfigMessage(String uuid, String key, boolean value) im
         return TYPE;
     }
 
-    // The only two settings this message exists to carry. The handler writes the client-supplied
-    // key straight into a static server-side map, and STRING_UTF8 accepts up to 32767 chars, so
-    // without a whitelist a modified client can push unbounded distinct keys and grow the server's
-    // heap for as long as it stays connected. Nothing else is ever sent or read -- see
-    // PlayerConfig.getInvertShift/getInvertClick and the two send sites on each loader's client.
     private static final Set<String> KNOWN_KEYS = Set.of("invertShift", "invertClick");
 
     @Override
@@ -50,8 +45,6 @@ public record PlayerBoolConfigMessage(String uuid, String key, boolean value) im
 
         if (player instanceof ServerPlayer serverPlayer) {
             workQueue.accept(() -> {
-                // Key on the AUTHENTICATED sender, never the client-supplied uuid string:
-                // any client could otherwise overwrite another player's settings.
                 UUID playerUniqueId = serverPlayer.getUUID();
 
                 Map<String, PlayerConfigSetting<?>> clientMap = PlayerConfig.serverPlayerConfigSettings.get(playerUniqueId);

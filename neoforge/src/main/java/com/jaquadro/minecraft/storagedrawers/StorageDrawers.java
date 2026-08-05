@@ -68,11 +68,6 @@ public class StorageDrawers
     }
 
     private void setup (final FMLCommonSetupEvent event) {
-        // Only registries that never build an ItemStack may run here -- ConversionRegistry just
-        // makes TagKeys and parses strings. The other three resolve config entries into ItemStacks,
-        // which cannot happen at setup: on 26.x an item's data components are data-driven and bound
-        // during datapack load, and the ItemStack constructor reads them eagerly, so building one
-        // this early throws "Components not bound yet". They moved to onTagsUpdated below.
         ConversionRegistry.INSTANCE.initialize();
 
         LocalIntegrationRegistry.initialize();
@@ -103,17 +98,6 @@ public class StorageDrawers
             ModClientConfig.INSTANCE.setLoaded();
     }
 
-    /**
-     * The three registries below turn config entries into ItemStacks, so they cannot be built until
-     * data components are bound. This is the exact point that happens, and it is NOT TagsUpdatedEvent:
-     * ReloadableServerResources.updateComponentsAndStaticRegistryTags applies pending tags, posts
-     * TagsUpdatedEvent, THEN applies pending components and posts this one. Listening to the tags
-     * event crashes with "Components not bound yet" on the very first world load.
-     *
-     * It fires in both the places the Fabric build needs: server datapack load (and every reload),
-     * and client login from RegistryDataCollector. All three registries rebuild from scratch on
-     * each call.
-     */
     @SubscribeEvent
     public void onDataComponentsBound(DefaultDataComponentsBoundEvent event) {
         CompTierRegistry.INSTANCE.initialize();
@@ -121,8 +105,6 @@ public class StorageDrawers
         MaterialBlacklist.INSTANCE.initialize();
     }
 
-    // Per-player settings arrive via PlayerBoolConfigMessage; prune on disconnect so the map does
-    // not grow for the lifetime of the server.
     @SubscribeEvent
     public void onPlayerDisconnect(PlayerEvent.PlayerLoggedOutEvent event) {
         PlayerConfig.serverPlayerConfigSettings.remove(event.getEntity().getUUID());

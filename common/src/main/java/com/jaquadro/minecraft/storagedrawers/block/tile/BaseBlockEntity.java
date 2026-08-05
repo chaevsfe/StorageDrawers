@@ -58,9 +58,6 @@ public class BaseBlockEntity extends BlockEntity
 
         //failureSnapshot = null;
 
-        // Vanilla's data fixer has no schema for modded block entities, so it upgrades the
-        // chunk around this NBT but never inside it. The version stamped at save time tells
-        // LegacyStackCodec exactly which fixes the item stacks in here still need.
         LegacyStackCodec.pushSourceDataVersion(input.getIntOr("DataVersion", -1));
         try {
             readFixed(input);
@@ -202,9 +199,6 @@ public class BaseBlockEntity extends BlockEntity
         if (getLevel() == null)
             return;
 
-        // Loaders that cache render data per position (NeoForge) have to be told it went stale
-        // before the re-render is requested, or the section is re-meshed from the old snapshot.
-        // No-op on Fabric, which re-reads it on every rebuild.
         if (getLevel().isClientSide())
             ChameleonServices.RENDER.refreshRenderData(this);
 

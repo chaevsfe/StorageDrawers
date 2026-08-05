@@ -91,11 +91,6 @@ public class SpriteReplacementModel extends ParentModel
         if (material == null)
             return super.materialFlags();
 
-        // Describes the replacement sprite, not the parent's: vanilla tests FLAG_TRANSLUCENT to
-        // route a block into the translucent phase, and under-reporting loses depth sorting. When
-        // no layer was requested this falls back to the whole-sprite transparency rather than each
-        // quad's sub-rect (which is only known once collectParts has run), so it can over-report
-        // but never under-report.
         Transparency transparency = ReplacementBlockPart.resolveTransparency(
             material, material.sprite().transparency(), layer);
 

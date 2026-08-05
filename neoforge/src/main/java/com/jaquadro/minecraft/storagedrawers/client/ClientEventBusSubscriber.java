@@ -10,17 +10,6 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 
-/**
- * Client-only game bus listeners.
- *
- * The invertShift/invertClick settings live in the client config but are enforced server-side, so
- * the server keeps a per-player copy. Without this handshake the server falls back to the defaults
- * and executes the opposite of what the client predicted for shift/click interactions.
- *
- * This lives in a Dist.CLIENT class rather than the main mod class: the previous version keyed off
- * EntityJoinLevelEvent on the common event bus and reached for Minecraft.getInstance() from a class
- * loaded on both sides, which is a dedicated-server class-loading hazard.
- */
 @EventBusSubscriber(modid = StorageDrawers.MOD_ID, value = Dist.CLIENT)
 public class ClientEventBusSubscriber
 {

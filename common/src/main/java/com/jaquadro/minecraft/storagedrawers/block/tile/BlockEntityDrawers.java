@@ -149,8 +149,6 @@ public abstract class BlockEntityDrawers extends BaseBlockEntity implements IDra
                 int remLevel = ((ItemUpgradeStorage) upgrade.getItem()).level.getLevel();
                 int remMult = ModCommonConfig.INSTANCE.UPGRADES.getLevelMult(remLevel);
 
-                // Removing the ONLY storage upgrade leaves the BASE multiplier, not zero --
-                // comparing against zero capacity blocked removal whenever items were stored.
                 int newMult = currentUpgradeMult - remMult;
                 if (newMult == 0)
                     newMult = ModCommonConfig.INSTANCE.UPGRADES.getLevelMult(0);
@@ -284,8 +282,6 @@ public abstract class BlockEntityDrawers extends BaseBlockEntity implements IDra
                     }
                 }
             } catch (Exception e) {
-                // Touches the access-widened LevelTicks.allContainers — a prime suspect if
-                // drawers silently stop validating their controller binding after a bump.
                 ModServices.reportOnce("BlockEntityDrawers.onEntityLoad.allContainers", e);
             }
         } catch (Exception e) {
@@ -633,8 +629,6 @@ public abstract class BlockEntityDrawers extends BaseBlockEntity implements IDra
         if (!drawerAttributes.isVoid())
             countAdded = Math.min(countAdded, drawer.getRemainingCapacity());
 
-        // Long-safe: on a void drawer the remaining-capacity clamp is skipped, and a drawer
-        // sitting at ~MAX_VALUE would wrap negative here and wipe its contents.
         drawer.setStoredItemCount((int) Math.min((long) drawer.getStoredItemCount() + countAdded, Integer.MAX_VALUE));
         stack.shrink(countAdded);
 
@@ -979,13 +973,6 @@ public abstract class BlockEntityDrawers extends BaseBlockEntity implements IDra
         IDrawerGroup group = getGroup(this);
 
         for (int i = 0; i < group.getDrawerCount(); i++) {
-            // A parked slot reports isEmpty() == true, so it would be picked as a destination
-            // and setStoredItem would drop the raw bytes we are holding for recovery. The group
-            // guard cannot catch this: putItemsIntoSlot asks canItemBeStoredManual, and manual
-            // stores are the sanctioned way to give up on a park -- but a hopper or magnet
-            // upgrade vacuuming up a passing item entity is not the player deciding that.
-            // Overwriting by hand still works; this is the same shape as the LOCK_EMPTY check
-            // immediately below, hand-rolled here for the same reason.
             if (group.getDrawer(i).hasParkedContents())
                 continue;
 
@@ -1035,8 +1022,6 @@ public abstract class BlockEntityDrawers extends BaseBlockEntity implements IDra
         @Nullable
         @Override
         public AbstractContainerMenu createMenu (int id, Inventory inventory, Player player) {
-            // Compacting drawers need their own containers: a 2-slot compacting drawer
-            // shares its slot count with the standard 2-slot drawer.
             if (entity instanceof BlockEntityDrawersComp) {
                 return switch (entity.getGroup().getDrawerCount()) {
                     case 2 -> new ContainerDrawersComp2(id, inventory, entity);

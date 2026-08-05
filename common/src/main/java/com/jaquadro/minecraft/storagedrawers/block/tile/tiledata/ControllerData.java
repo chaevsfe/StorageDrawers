@@ -47,8 +47,6 @@ public class ControllerData extends BlockEntityDataShim
         if (host.getLevel() == null)
             return null;
 
-        // Never force-load the controller's chunk just to validate the binding; keep the
-        // binding and report no controller until the chunk is naturally loaded.
         if (!host.getLevel().isLoaded(controllerCoord))
             return null;
 
