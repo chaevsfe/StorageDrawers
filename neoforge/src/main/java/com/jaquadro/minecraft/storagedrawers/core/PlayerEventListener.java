@@ -29,7 +29,11 @@ public class PlayerEventListener
 		if (!ModCommonConfig.INSTANCE.DRAWERS.anyHeavyDrawers())
 			return;
 
-		checkItemDebuf(event.getItemEntity().getItem(), event.getPlayer());
+		// getOriginalStack(), not getItemEntity().getItem(): Post fires AFTER
+		// Inventory.add() has drained the entity's stack down to the remainder, so the live
+		// stack is empty on any complete pickup and nothing would ever be recognised as heavy.
+		// NeoForge keeps the pre-pickup copy on the event for exactly this reason.
+		checkItemDebuf(event.getOriginalStack(), event.getPlayer());
 	}
 
 	@SubscribeEvent
@@ -38,21 +42,27 @@ public class PlayerEventListener
 		if(event.getEntity().tickCount % 60 != 0)
 			return;
 
-		if (event.getEntity() instanceof ServerPlayer)
-			ItemUpgradeRemote.validateInventory(event.getEntity().getInventory(), event.getEntity().level());
+		// PlayerTickEvent fires on BOTH logical sides. Fabric drives this from
+		// ServerTickEvents.END_SERVER_TICK over the player list, so it is server-only there;
+		// without this guard the client would scan its own inventory and apply a duplicate
+		// client-side slowness on top of the one the server already sends.
+		if (!(event.getEntity() instanceof ServerPlayer player))
+			return;
+
+		ItemUpgradeRemote.validateInventory(player.getInventory(), player.level());
 
 		if (!ModCommonConfig.INSTANCE.DRAWERS.anyHeavyDrawers())
 			return;
 
 		// TODO: What is getAllSlots
-		//for(var s : event.getEntity().getAllSlots()) {
-		//	if (checkItemDebuf(s, event.getEntity()))
+		//for(var s : player.getAllSlots()) {
+		//	if (checkItemDebuf(s, player))
 		//		return;
 		//}
 
-		Inventory inv = event.getEntity().getInventory();
+		Inventory inv = player.getInventory();
 		for (int i = 0; i < inv.getContainerSize(); i++) {
-			if (checkItemDebuf(inv.getItem(i), event.getEntity()))
+			if (checkItemDebuf(inv.getItem(i), player))
 				return;
 		}
 	}

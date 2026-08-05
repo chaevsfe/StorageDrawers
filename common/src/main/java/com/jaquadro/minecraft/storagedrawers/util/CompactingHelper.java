@@ -129,7 +129,12 @@ public class CompactingHelper
         }
 
         List<ItemStack> candidates = new ArrayList<>();
-        Map<ItemStack, Integer> candidatesRate = new HashMap<>();
+        // Keyed by Item, not ItemStack: ItemStack overrides neither equals nor hashCode, so an
+        // ItemStack-keyed map only ever answers to the exact instance that was put in it. The
+        // mod-namespace lookup below hands back a stack built with `new ItemStack(item)`, which
+        // never is that instance, so the get() returned null and unboxing it into Result's int
+        // threw -- a hopper feeding a compacting drawer took the whole server down with it.
+        Map<Item, Integer> candidatesRate = new HashMap<>();
 
         if (world instanceof ServerLevel serverWorld) {
             for (var recipe : serverWorld.recipeAccess().recipes.byType(RecipeType.CRAFTING)) {
@@ -154,7 +159,8 @@ public class CompactingHelper
                         // TODO: ItemStackOreMatcher.areItemsEqual(match, comp, true)
                         if (ItemStackMatcher.areItemsEqual(match, comp) && comp.getCount() == recipeSize) {
                             candidates.add(match);
-                            candidatesRate.put(match, recipeSize);
+                            // First recipe found wins, matching the candidates.get(0) fallback below.
+                            candidatesRate.putIfAbsent(match.getItem(), recipeSize);
 
                             if (!world.isClientSide() && debugTrace)
                                 ModServices.log.info("Found descending candidate for " + stack.toString() + ": " + match.toString() + " size=" + recipeSize + ", inverse=" + comp.toString());
@@ -168,11 +174,11 @@ public class CompactingHelper
         List<Item> candidateItems = candidates.stream().map(ItemStack::getItem).toList();
         ItemStack modMatch = findMatchingModCandidate(stack, candidateItems);
         if (!modMatch.isEmpty())
-            return new Result(modMatch, candidatesRate.get(modMatch));
+            return new Result(modMatch, candidatesRate.get(modMatch.getItem()));
 
         if (candidates.size() > 0) {
             ItemStack match = candidates.get(0);
-            return new Result(match, candidatesRate.get(match));
+            return new Result(match, candidatesRate.get(match.getItem()));
         }
 
         if (!world.isClientSide() && debugTrace)

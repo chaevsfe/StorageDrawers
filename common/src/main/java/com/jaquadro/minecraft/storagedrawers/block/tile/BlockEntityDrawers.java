@@ -979,6 +979,16 @@ public abstract class BlockEntityDrawers extends BaseBlockEntity implements IDra
         IDrawerGroup group = getGroup(this);
 
         for (int i = 0; i < group.getDrawerCount(); i++) {
+            // A parked slot reports isEmpty() == true, so it would be picked as a destination
+            // and setStoredItem would drop the raw bytes we are holding for recovery. The group
+            // guard cannot catch this: putItemsIntoSlot asks canItemBeStoredManual, and manual
+            // stores are the sanctioned way to give up on a park -- but a hopper or magnet
+            // upgrade vacuuming up a passing item entity is not the player deciding that.
+            // Overwriting by hand still works; this is the same shape as the LOCK_EMPTY check
+            // immediately below, hand-rolled here for the same reason.
+            if (group.getDrawer(i).hasParkedContents())
+                continue;
+
             if (group.getDrawer(i).isEmpty()) {
                 IDrawerAttributes attr = group.getCapability(Capabilities.DRAWER_ATTRIBUTES);
                 if (attr != null && attr.isItemLocked(LockAttribute.LOCK_EMPTY))

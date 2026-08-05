@@ -32,7 +32,13 @@ public class CommonEventBusSubscriber {
             if (player.isCreative()) {
                 BlockHitResult hit = WorldUtils.rayTraceEyes(level, player, pos);
                 if (hit.getType() == HitResult.Type.BLOCK) {
-                    blockDrawers.leftAction(state, level, pos, player, hit);
+                    // LeftClickBlock fires on BOTH logical sides. leftAction extracts from the
+                    // drawer and carries no side guard of its own, so running it on the client
+                    // mutates the client's copy behind the server's back. Fabric's
+                    // AttackBlockCallback returns early on the client for the same reason; the
+                    // cancel still has to happen on both sides to suppress the swing.
+                    if (!level.isClientSide())
+                        blockDrawers.leftAction(state, level, pos, player, hit);
                     event.setCanceled(blockDrawers.getFaceSlot(state, hit) >= 0);
                 }
             }

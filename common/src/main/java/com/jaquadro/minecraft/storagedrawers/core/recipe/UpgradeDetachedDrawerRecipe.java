@@ -108,6 +108,14 @@ public class UpgradeDetachedDrawerRecipe extends CustomRecipe
         int storageMult = 0;
     }
 
+    // Read off the component rather than the CUSTOM_DATA blob: this runs inside matches(), which
+    // has no registry access of its own, and DETACHED_DRAWER_CONTENTS is written alongside the
+    // blob everywhere a detached drawer is produced (BlockDrawers.pullDrawer, assemble below).
+    private static boolean holdsItems (ItemStack drawer) {
+        DetachedDrawerContents contents = drawer.get(ModDataComponents.DETACHED_DRAWER_CONTENTS.get());
+        return contents != null && contents.getItemCount() > 0;
+    }
+
     @Nullable
     private Context findContext(CraftingInput inv) {
         Context ret = new Context();
@@ -127,6 +135,14 @@ public class UpgradeDetachedDrawerRecipe extends CustomRecipe
         }
 
         if (ret.drawer.isEmpty())
+            return null;
+
+        // With no upgrade in the grid, assemble() takes its "normalise back to the plain
+        // DETACHED_DRAWER item" branch, which rebuilds the stack from a fresh, empty
+        // DetachedDrawerData. That is only ever right for a drawer holding nothing: on a
+        // filled one it drops the stored stack, and since the input is consumed and nothing
+        // is returned, those items are destroyed outright. Refuse the match instead.
+        if (ret.upgrades.isEmpty() && holdsItems(ret.drawer))
             return null;
 
         for (ItemStack upgrade : ret.upgrades) {

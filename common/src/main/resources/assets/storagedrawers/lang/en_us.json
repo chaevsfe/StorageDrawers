@@ -153,6 +153,7 @@
     "tooltip.storagedrawers.waila.limit": "Stack Limit: %s (x%s)",
     "tooltip.storagedrawers.waila.locked": "Locked",
     "tooltip.storagedrawers.waila.void": "Void",
+    "tooltip.storagedrawers.waila.balanced": "Balanced",
     "tooltip.storagedrawers.waila.protected": "Protected",
     "tooltip.storagedrawers.waila.suspended": "Paused",
     "tooltip.storagedrawers.waila.magnetic": "Magnetic"
