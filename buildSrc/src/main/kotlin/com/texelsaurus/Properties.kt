@@ -15,7 +15,7 @@ object Properties {
     const val issuesUrl = "https://github.com/chaevsfe/StorageDrawers/issues"
     const val modid = "storagedrawers"
 
-    const val curseProjectId = "0"
+    const val curseProjectId = "1639713"
     const val description = "Interactive compartment storage for your workshops"
     const val license = "MIT"
     const val distRelease = "beta"
