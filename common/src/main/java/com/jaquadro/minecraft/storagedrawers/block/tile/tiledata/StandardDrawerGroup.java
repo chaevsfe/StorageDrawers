@@ -75,6 +75,13 @@ public abstract class StandardDrawerGroup extends BlockEntityDataShim implements
             }
             slots[i++].deserializeNBT(item);
         }
+
+        // deserializeNBT goes through the *Raw setters, which deliberately skip the syncSlots()
+        // that setStoredItem/reset do -- so without this the accessible order stays whatever the
+        // constructor produced (plain 0..n, every slot empty at that point). A drawer holding
+        // iron in slot 2 then advertises slot 0 first after every chunk load, and the next hopper
+        // insert starts a SECOND iron slot instead of topping up the existing one.
+        syncSlots();
     }
 
     @Override
