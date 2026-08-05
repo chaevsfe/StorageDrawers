@@ -24,9 +24,6 @@ public class DrawerGroupResourceHandler implements ResourceHandler<ItemResource>
 
     private final IDrawerGroup group;
 
-    int size;
-    int[] slotOrder = new int[0];
-
     final List<DrawerWrapper> drawerWrappers = new ArrayList();
     private final RootCommitJournal setChangedJournal;
 
@@ -34,13 +31,23 @@ public class DrawerGroupResourceHandler implements ResourceHandler<ItemResource>
         return internalOf(group);
     }
 
+    // The slot list is deliberately NOT cached on this object. NeoForge's BlockCapabilityCache
+    // holds the handler instance and only re-runs this provider when something invalidates the
+    // position -- chunk load/unload, block-entity load/unload, placement, destruction. Adding or
+    // removing a drawer in a controller network is none of those (it happens at the DRAWER's
+    // position, not the controller's), and the mod never calls Level.invalidateCapabilities
+    // anywhere. Caching here left every modded pipe attached to a controller frozen at whatever
+    // the network looked like when it first resolved. Fabric never had this problem: its
+    // BlockApiCache re-invokes the provider on every lookup.
     static DrawerGroupResourceHandler internalOf (IDrawerGroup group) {
-        DrawerGroupResourceHandler storage = WRAPPERS.computeIfAbsent(group, DrawerGroupResourceHandler::new);
+        return WRAPPERS.computeIfAbsent(group, DrawerGroupResourceHandler::new);
+    }
 
-        storage.resizeSlotList();
-        storage.slotOrder = group.getAccessibleDrawerSlots();
-
-        return storage;
+    // A plain field read on all three groups (BlockEntityController.drawerSlots,
+    // StandardDrawerGroup.order, BlockEntityControllerIO forwarding to its controller), which is
+    // why common's own DrawerItemHandler already calls it per operation rather than caching.
+    private int[] slotOrder () {
+        return group.getAccessibleDrawerSlots();
     }
 
     DrawerGroupResourceHandler (IDrawerGroup group) {
@@ -48,23 +55,23 @@ public class DrawerGroupResourceHandler implements ResourceHandler<ItemResource>
         this.setChangedJournal = new RootCommitJournal(this::onRootCommit);
     }
 
-    private void resizeSlotList() {
-        size = group.getAccessibleDrawerSlots().length;
-
-        while (drawerWrappers.size() < size)
-            drawerWrappers.add(new DrawerWrapper(drawerWrappers.size()));
-    }
-
     DrawerWrapper getDrawerWrapper (int index) {
         Objects.checkIndex(index, this.size());
+
+        // Grown on demand instead of up front, now that size() is live. Each wrapper's slot is
+        // its own list index, which is what makes getDrawerWrapper(translateSlot(i)) correct.
+        while (drawerWrappers.size() <= index)
+            drawerWrappers.add(new DrawerWrapper(drawerWrappers.size()));
+
         return this.drawerWrappers.get(index);
     }
 
     void onRootCommit () { }
 
     int translateSlot (int i) {
-        if (i >= 0 && i < slotOrder.length)
-            i = slotOrder[i];
+        int[] order = slotOrder();
+        if (i >= 0 && i < order.length)
+            i = order[i];
 
         return i;
     }
@@ -81,7 +88,7 @@ public class DrawerGroupResourceHandler implements ResourceHandler<ItemResource>
         if (!isGroupValid())
             return 0;
 
-        return size;
+        return slotOrder().length;
     }
 
     @Override
