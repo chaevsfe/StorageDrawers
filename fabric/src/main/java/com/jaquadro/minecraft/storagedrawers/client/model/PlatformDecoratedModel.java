@@ -205,6 +205,8 @@ public class PlatformDecoratedModel<C extends ModelContext> extends ParentModel 
 
                     PlatformDecoratedModel<ModelContext> pd = (PlatformDecoratedModel<ModelContext>) parent;
                     Supplier<ModelContext> supplier = () -> pd.contextSupplier.makeContext(stack);
+                    if (renderType == DecoratorRenderType.SOLID && pd.decorator.shouldRenderBase(supplier, stack))
+                        emitModel.accept(pd.parent);
                     pd.decorator.emitItemQuads(supplier, emitModel, stack, renderType);
 
                     if (parts.isEmpty())
