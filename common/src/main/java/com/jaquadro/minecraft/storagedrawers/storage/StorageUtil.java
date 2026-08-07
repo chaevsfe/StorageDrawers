@@ -119,11 +119,16 @@ public class StorageUtil
             long dist = aggCount / availDrawers;
             long remainder = aggCount - (dist * availDrawers);
 
+            int availIndex = 0;
             for (int i = 0; i < balanceDrawers.size(); i++) {
                 int remaining = balanceCapacity.get(i) - newAmount[i];
-                int toAdd = (int) Math.min(remaining, Math.min(Integer.MAX_VALUE, dist + (i < remainder ? 1 : 0)));
+                if (remaining <= 0)
+                    continue;
+
+                int toAdd = (int) Math.min(remaining, Math.min(Integer.MAX_VALUE, dist + (availIndex < remainder ? 1 : 0)));
                 newAmount[i] += toAdd;
                 aggCount -= toAdd;
+                availIndex += 1;
             }
         }
 

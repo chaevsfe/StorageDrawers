@@ -153,7 +153,7 @@ public abstract class BlockEntityDrawers extends BaseBlockEntity implements IDra
                 if (newMult == 0)
                     newMult = ModCommonConfig.INSTANCE.UPGRADES.getLevelMult(0);
 
-                return stackCapacityCheck(getDrawerCapacity() * newMult);
+                return stackCapacityCheck(getEffectiveDrawerCapacity() * newMult);
             }
 
             return true;

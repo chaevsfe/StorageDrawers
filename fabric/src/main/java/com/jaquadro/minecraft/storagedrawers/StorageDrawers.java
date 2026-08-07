@@ -9,12 +9,15 @@ import com.texelsaurus.minecraft.chameleon.api.ChameleonInit;
 import com.texelsaurus.minecraft.chameleon.service.ChameleonConfig;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.CommonLifecycleEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 
 public class StorageDrawers implements ModInitializer
 {
     public static final Api api = new Api();
+
+    private static volatile boolean localServerRunning;
 
     @Override
     public void onInitialize () {
@@ -44,7 +47,13 @@ public class StorageDrawers implements ModInitializer
                 PlayerEventListener.onPlayerTick(player);
         });
 
+        ServerLifecycleEvents.SERVER_STARTING.register(server -> localServerRunning = true);
+        ServerLifecycleEvents.SERVER_STOPPED.register(server -> localServerRunning = false);
+
         CommonLifecycleEvents.TAGS_LOADED.register((registries, client) -> {
+            if (client && localServerRunning)
+                return;
+
             CompTierRegistry.INSTANCE.initialize();
             StorageBlacklist.INSTANCE.initialize();
             MaterialBlacklist.INSTANCE.initialize();

@@ -100,6 +100,9 @@ public class StorageDrawers
 
     @SubscribeEvent
     public void onDataComponentsBound(DefaultDataComponentsBoundEvent event) {
+        if (!event.shouldUpdateStaticData())
+            return;
+
         CompTierRegistry.INSTANCE.initialize();
         StorageBlacklist.INSTANCE.initialize();
         MaterialBlacklist.INSTANCE.initialize();
