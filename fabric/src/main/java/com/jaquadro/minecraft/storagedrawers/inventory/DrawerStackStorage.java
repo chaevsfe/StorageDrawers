@@ -1,7 +1,8 @@
 package com.jaquadro.minecraft.storagedrawers.inventory;
 
-import java.util.Objects;
+import java.util.Map;
 
+import com.google.common.collect.MapMaker;
 import com.jaquadro.minecraft.storagedrawers.api.storage.IDrawer;
 import com.jaquadro.minecraft.storagedrawers.api.storage.IDrawerAttributes;
 import com.jaquadro.minecraft.storagedrawers.api.storage.IDrawerGroup;
@@ -12,14 +13,15 @@ import com.jaquadro.minecraft.storagedrawers.capabilities.Capabilities;
 import net.fabricmc.fabric.api.transfer.v1.item.ItemVariant;
 import net.fabricmc.fabric.api.transfer.v1.item.base.SingleStackStorage;
 import net.fabricmc.fabric.api.transfer.v1.transaction.TransactionContext;
-import net.minecraft.core.component.DataComponentType;
+import net.fabricmc.fabric.api.transfer.v1.transaction.base.SnapshotParticipant;
 import net.minecraft.world.item.ItemStack;
 
 public class DrawerStackStorage extends SingleStackStorage
 {
+    private static final Map<IDrawerGroup, GroupSnapshotParticipant> GROUP_PARTICIPANTS = new MapMaker().weakValues().makeMap();
+
     DrawerStorageImpl storage;
     int slot;
-    ItemStack lastReleasedSnapshot = null;
 
     DrawerStackStorage (DrawerStorageImpl storage, int slot) {
         this.storage = storage;
@@ -28,6 +30,12 @@ public class DrawerStackStorage extends SingleStackStorage
 
     void updateSlot (int slot) {
         this.slot = slot;
+    }
+
+    @Override
+    public void updateSnapshots (TransactionContext transaction) {
+        IDrawerGroup stateGroup = DrawerGroupSnapshot.resolveStateGroup(storage.group, slot);
+        GROUP_PARTICIPANTS.computeIfAbsent(stateGroup, GroupSnapshotParticipant::new).updateSnapshots(transaction);
     }
 
     @Override
@@ -46,7 +54,12 @@ public class DrawerStackStorage extends SingleStackStorage
 
     @Override
     protected int getCapacity (ItemVariant itemVariant) {
-        return storage.getDrawer(slot).getMaxCapacity(itemVariant.toStack());
+        IDrawer drawer = storage.getDrawer(slot);
+        if (drawer.isEmpty())
+            return drawer.getMaxCapacity(itemVariant.toStack());
+
+        long capacity = (long) drawer.getStoredItemCount() + drawer.getRemainingCapacity();
+        return (int) Math.min(capacity, Integer.MAX_VALUE);
     }
 
     private IDrawerAttributes getDrawerAttributes (IDrawerGroup group) {
@@ -86,7 +99,7 @@ public class DrawerStackStorage extends SingleStackStorage
 
         long inserted = super.insert(insertedVariant, maxAmount, transaction);
 
-        if (inserted < maxAmount) {
+        if (inserted < maxAmount && insertedVariant.matches(getStack())) {
             boolean isVoid;
 
             if (storage.group instanceof BlockEntityController)
@@ -118,27 +131,22 @@ public class DrawerStackStorage extends SingleStackStorage
         return super.extract(variant, maxAmount, transaction);
     }
 
-    @Override
-    protected void releaseSnapshot (ItemStack snapshot) {
-        lastReleasedSnapshot = snapshot;
-    }
+    private static class GroupSnapshotParticipant extends SnapshotParticipant<DrawerGroupSnapshot>
+    {
+        private final IDrawerGroup group;
 
-    @Override
-    protected void onFinalCommit () {
-        ItemStack original = lastReleasedSnapshot;
-        ItemStack currentStack = getStack();
+        GroupSnapshotParticipant (IDrawerGroup group) {
+            this.group = group;
+        }
 
-        if (!original.isEmpty() && original.getItem() == currentStack.getItem()) {
-            if (!Objects.equals(original.getComponentsPatch(), currentStack.getComponentsPatch())) {
-                for (DataComponentType<?> type : original.getComponents().keySet())
-                    original.set(type, null);
+        @Override
+        protected DrawerGroupSnapshot createSnapshot () {
+            return DrawerGroupSnapshot.capture(group);
+        }
 
-                original.applyComponents(currentStack.getComponents());
-            }
-
-            original.setCount(currentStack.getCount());
-            setStack(original);
-        } else
-            original.setCount(0);
+        @Override
+        protected void readSnapshot (DrawerGroupSnapshot snapshot) {
+            snapshot.restore();
+        }
     }
 }

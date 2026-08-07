@@ -14,6 +14,7 @@ import net.neoforged.neoforge.transfer.ResourceHandler;
 import net.neoforged.neoforge.transfer.item.ItemResource;
 import net.neoforged.neoforge.transfer.item.ItemStackResourceHandler;
 import net.neoforged.neoforge.transfer.transaction.RootCommitJournal;
+import net.neoforged.neoforge.transfer.transaction.SnapshotJournal;
 import net.neoforged.neoforge.transfer.transaction.TransactionContext;
 
 import java.util.*;
@@ -21,6 +22,7 @@ import java.util.*;
 public class DrawerGroupResourceHandler implements ResourceHandler<ItemResource>
 {
     private static final Map<IDrawerGroup, DrawerGroupResourceHandler> WRAPPERS = new MapMaker().weakValues().makeMap();
+    private static final Map<IDrawerGroup, GroupSnapshotJournal> GROUP_JOURNALS = new MapMaker().weakValues().makeMap();
 
     private final IDrawerGroup group;
 
@@ -123,6 +125,12 @@ public class DrawerGroupResourceHandler implements ResourceHandler<ItemResource>
 
 
         @Override
+        public void updateSnapshots (TransactionContext transaction) {
+            IDrawerGroup stateGroup = DrawerGroupSnapshot.resolveStateGroup(group, slot);
+            GROUP_JOURNALS.computeIfAbsent(stateGroup, GroupSnapshotJournal::new).updateSnapshots(transaction);
+        }
+
+        @Override
         protected ItemStack getStack () {
             if (!isGroupValid())
                 return ItemStack.EMPTY;
@@ -164,7 +172,12 @@ public class DrawerGroupResourceHandler implements ResourceHandler<ItemResource>
             if (!isGroupValid())
                 return 0;
 
-            return group.getDrawer(slot).getMaxCapacity(resource.toStack());
+            IDrawer drawer = group.getDrawer(slot);
+            if (drawer.isEmpty())
+                return drawer.getMaxCapacity(resource.toStack());
+
+            long capacity = (long) drawer.getStoredItemCount() + drawer.getRemainingCapacity();
+            return (int) Math.min(capacity, Integer.MAX_VALUE);
         }
 
         @Override
@@ -215,7 +228,7 @@ public class DrawerGroupResourceHandler implements ResourceHandler<ItemResource>
 
             int inserted = super.insert(index, resource, amount, transaction);
 
-            if (inserted < amount) {
+            if (inserted < amount && resource.matches(getStack())) {
                 boolean isVoid;
 
                 if (group instanceof BlockEntityController controller)
@@ -246,6 +259,25 @@ public class DrawerGroupResourceHandler implements ResourceHandler<ItemResource>
                 return 0;
 
             return super.extract(index, resource, amount, transaction);
+        }
+    }
+
+    private static class GroupSnapshotJournal extends SnapshotJournal<DrawerGroupSnapshot>
+    {
+        private final IDrawerGroup group;
+
+        GroupSnapshotJournal (IDrawerGroup group) {
+            this.group = group;
+        }
+
+        @Override
+        protected DrawerGroupSnapshot createSnapshot () {
+            return DrawerGroupSnapshot.capture(group);
+        }
+
+        @Override
+        protected void revertToSnapshot (DrawerGroupSnapshot snapshot) {
+            snapshot.restore();
         }
     }
 }
