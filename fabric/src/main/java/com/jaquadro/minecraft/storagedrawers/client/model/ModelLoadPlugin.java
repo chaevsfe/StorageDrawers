@@ -13,7 +13,6 @@ import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.fabricmc.fabric.api.client.model.loading.v1.ModelLoadingPlugin;
 import net.minecraft.client.renderer.block.dispatch.BlockStateModel;
-import net.minecraft.client.renderer.item.ItemModels;
 import net.minecraft.client.resources.model.ModelBaker;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
@@ -98,10 +97,6 @@ public class ModelLoadPlugin implements ModelLoadingPlugin
         com.jaquadro.minecraft.storagedrawers.client.model.DrawerModelStore.clearCaches();
         com.jaquadro.minecraft.storagedrawers.client.model.decorator.MaterialModelDecorator.clearCache();
         ItemModelStore.models.clear();
-
-        ItemModels.ID_MAPPER.put(
-            ModConstants.loc("framed_block"), PlatformDecoratedModel.PlatformDecoratedItemModel.Unbaked.MAP_CODEC
-        );
 
         DrawerModelGeometry.loadGeometryData();
         pluginContext.modifyBlockModelOnLoad().register((original, context) -> {
