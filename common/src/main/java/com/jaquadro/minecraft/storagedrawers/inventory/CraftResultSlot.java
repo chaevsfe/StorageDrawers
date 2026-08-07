@@ -40,6 +40,25 @@ public class CraftResultSlot extends Slot
 
     @Override
     public void onTake (@NotNull Player player, @NotNull ItemStack stack) {
+        consumeInputs(stack);
+    }
+
+    @Override
+    protected void onQuickCraft (@NotNull ItemStack stack, int amount) {
+        amountCrafted += amount;
+        consumeInputs(stack);
+        super.onQuickCraft(stack, amount);
+    }
+
+    @Override
+    protected void onSwapCraft (int amount) {
+        amountCrafted += amount;
+    }
+
+    private void consumeInputs (@NotNull ItemStack stack) {
+        if (amountCrafted <= 0)
+            return;
+
         for (int slot : inputSlots) {
             ItemStack itemTarget = inputInventory.getItem(slot);
 
@@ -56,21 +75,9 @@ public class CraftResultSlot extends Slot
             }
 
             if (!itemTarget.isEmpty())
-                inputInventory.removeItem(slot, stack.getCount());
+                inputInventory.removeItem(slot, amountCrafted);
         }
 
         amountCrafted = 0;
-    }
-
-    @Override
-    protected void onQuickCraft (@NotNull ItemStack stack, int amount) {
-        for (int slot : inputSlots) {
-            ItemStack itemTarget = inputInventory.getItem(slot);
-            if (!itemTarget.isEmpty())
-                inputInventory.removeItem(slot, amount);
-        }
-
-        amountCrafted += amount;
-        super.onQuickCraft(stack, amount);
     }
 }

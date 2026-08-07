@@ -142,7 +142,7 @@ public class DrawerModelGeometry
             iresource = Minecraft.getInstance().getResourceManager().getResourceOrThrow(location);
             reader = new InputStreamReader(iresource.open(), StandardCharsets.UTF_8);
             return CuboidModel.fromStream(reader);
-        } catch (IOException e) {
+        } catch (IOException | RuntimeException e) {
             ModServices.log.error("Could not read drawer geometry model {}", location, e);
             return null;
         } finally {

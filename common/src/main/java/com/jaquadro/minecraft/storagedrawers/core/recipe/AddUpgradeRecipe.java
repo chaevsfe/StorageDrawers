@@ -70,6 +70,7 @@ public class AddUpgradeRecipe extends CustomRecipe
         if (ctx == null)
             return ItemStack.EMPTY;
         ItemStack ret = ctx.drawer.copy();
+        ret.setCount(1);
 
         var output = TagValueOutput.createWithContext(ProblemReporter.DISCARDING, registries);
         ctx.data.write(output);

@@ -1,5 +1,6 @@
 package com.jaquadro.minecraft.storagedrawers.config;
 
+import com.jaquadro.minecraft.storagedrawers.ModServices;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.Identifier;
@@ -106,7 +107,12 @@ public class ConfigItemList
         if (parts.length == 1)
             return registerNamespace(parts[0]);
 
-        Identifier resource = Identifier.parse(entry);
+        Identifier resource = Identifier.tryParse(entry);
+        if (resource == null) {
+            ModServices.log.warn("Skipping invalid item list entry '{}'", entry);
+            return false;
+        }
+
         Item item = BuiltInRegistries.ITEM.getValue(resource);
 
         return registerItem(new ItemStack(item));

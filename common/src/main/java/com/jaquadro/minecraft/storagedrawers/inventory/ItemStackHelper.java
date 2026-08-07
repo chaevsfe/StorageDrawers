@@ -64,7 +64,10 @@ public class ItemStackHelper
     }
 
     public static ItemStack encodeItemStack (@NotNull ItemStack proto, int count) {
-        if (!proto.isEmpty() && count > 0 && count < 128) {
+        if (proto.isEmpty())
+            return ItemStack.EMPTY;
+
+        if (count > 0 && count < 128) {
             ItemStack stack = proto.copy();
             stack.setCount(count);
             return stack;

@@ -71,6 +71,7 @@ public class UpgradeDetachedDrawerRecipe extends CustomRecipe
             return ItemStack.EMPTY;
 
         ItemStack ret = ctx.drawer.copy();
+        ret.setCount(1);
         CustomData cdata = ret.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY);
 
         var input = TagValueInput.create(ProblemReporter.DISCARDING, access, cdata.copyTag());

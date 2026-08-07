@@ -133,10 +133,14 @@ public class CompTierRegistry
         if (parts.length != 3)
             return false;
 
-        Identifier upperResource = Identifier.parse(parts[0]);
-        Item upperItem = BuiltInRegistries.ITEM.getValue(upperResource);
+        Identifier upperResource = Identifier.tryParse(parts[0]);
+        Identifier lowerResource = Identifier.tryParse(parts[1]);
+        if (upperResource == null || lowerResource == null) {
+            ModServices.log.warn("Skipping invalid compacting rule '{}'", rule);
+            return false;
+        }
 
-        Identifier lowerResource = Identifier.parse(parts[1]);
+        Item upperItem = BuiltInRegistries.ITEM.getValue(upperResource);
         Item lowerItem = BuiltInRegistries.ITEM.getValue(lowerResource);
 
         try {

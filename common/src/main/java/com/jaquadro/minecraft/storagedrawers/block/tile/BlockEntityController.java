@@ -1068,7 +1068,7 @@ public class BlockEntityController extends BaseBlockEntity implements IDrawerGro
                 }
             }
 
-            if (!rebalance.isEmpty())
+            if (!simulate && !rebalance.isEmpty())
                 StorageUtil.rebalanceDrawers(rebalance.stream());
 
             return (amount == 0)

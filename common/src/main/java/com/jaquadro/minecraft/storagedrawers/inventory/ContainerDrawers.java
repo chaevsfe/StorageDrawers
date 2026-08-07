@@ -7,6 +7,7 @@ import com.jaquadro.minecraft.storagedrawers.block.tile.BlockEntityDrawers;
 import com.jaquadro.minecraft.storagedrawers.client.gui.StorageGuiGraphics;
 import com.jaquadro.minecraft.storagedrawers.config.ModCommonConfig;
 import com.jaquadro.minecraft.storagedrawers.item.ItemUpgrade;
+import com.jaquadro.minecraft.storagedrawers.security.SecurityManager;
 import com.texelsaurus.minecraft.chameleon.inventory.content.PositionContent;
 import com.texelsaurus.minecraft.chameleon.util.WorldUtils;
 import net.minecraft.core.BlockPos;
@@ -36,6 +37,7 @@ public abstract class ContainerDrawers extends AbstractContainerMenu
     private static final int UpgradeY = 86;
 
     private final Container upgradeInventory;
+    private final BlockEntityDrawers blockEntity;
 
     private final List<Slot> storageSlots;
     private final List<Slot> upgradeSlots;
@@ -69,6 +71,7 @@ public abstract class ContainerDrawers extends AbstractContainerMenu
 
         int drawerCount = 0;
 
+        blockEntity = tileEntity;
         upgradeInventory = new InventoryUpgrade(tileEntity);
         Block block = tileEntity.getBlockState().getBlock();
         IDrawerGroup group = tileEntity.getGroup();
@@ -127,7 +130,14 @@ public abstract class ContainerDrawers extends AbstractContainerMenu
 
     @Override
     public boolean stillValid (@NotNull Player player) {
-        return upgradeInventory.stillValid(player);
+        return upgradeInventory.stillValid(player) && SecurityManager.hasAccess(player, blockEntity);
+    }
+
+    @Override
+    public void setCarried (@NotNull ItemStack stack) {
+        if (ItemStackHelper.isStackEncoded(stack))
+            stack = ItemStackHelper.stripDecoding(stack);
+        super.setCarried(stack);
     }
 
     @Override

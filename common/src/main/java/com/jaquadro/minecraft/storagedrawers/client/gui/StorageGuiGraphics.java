@@ -90,7 +90,7 @@ public class StorageGuiGraphics extends GuiGraphicsExtractor
 
             int color = 0xFFFFFFFF;
             if (stackSize == 0)
-                color = (255 << 16) | (96 << 8) | (96);
+                color = 0xFFFF6060;
 
             pose().pushMatrix();
             pose().scale(scale, scale);
