@@ -148,7 +148,7 @@ public class DrawerModelStore
     public static final FrameMatSet FramedTrimMaterials = new FrameMatSet()
         .sidePart(DynamicPart.FRAMED_TRIM_SIDE).trimPart(DynamicPart.FRAMED_TRIM_TRIM);
 
-    private record CachedModel (Object epoch, BlockStateModel model) { }
+    private record CachedModel (java.lang.ref.WeakReference<Object> epoch, BlockStateModel model) { }
 
     private static final Map<BlockState, BlockStateModel> modelStore = new java.util.concurrent.ConcurrentHashMap<>();
     private static final Map<BlockState, Map<BlockState, CachedModel>> replacementStore = new java.util.concurrent.ConcurrentHashMap<>();
@@ -417,7 +417,7 @@ public class DrawerModelStore
 
         Object epoch = modelEpoch();
         CachedModel cached = store.get(replaceLoc);
-        if (cached != null && cached.epoch() == epoch)
+        if (cached != null && cached.epoch().get() == epoch)
             return cached.model();
 
         BlockStateModel model = getModel(loc);
@@ -426,7 +426,7 @@ public class DrawerModelStore
             return model;
 
         BlockStateModel merged = new SpriteReplacementModel(model, replacementModel, ChunkSectionLayer.CUTOUT);
-        store.put(replaceLoc, new CachedModel(epoch, merged));
+        store.put(replaceLoc, new CachedModel(new java.lang.ref.WeakReference<>(epoch), merged));
         return merged;
     }
 

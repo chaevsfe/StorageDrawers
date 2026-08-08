@@ -17,6 +17,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
 import org.jetbrains.annotations.NotNull;
 
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -24,7 +25,7 @@ import java.util.Map;
 
 public class SpriteReplacementModel extends ParentModel
 {
-    private record Resolved (Object epoch, Material.Baked material) { }
+    private record Resolved (WeakReference<Object> epoch, Material.Baked material) { }
 
     private final ItemStack source;
     private volatile Resolved resolved;
@@ -64,12 +65,12 @@ public class SpriteReplacementModel extends ParentModel
         BlockStateModelSet models = Minecraft.getInstance().getModelManager().getBlockStateModelSet();
         Block block = ((BlockItem)stack.getItem()).getBlock();
 
-        return new Resolved(models, models.getParticleMaterial(block.defaultBlockState()));
+        return new Resolved(new WeakReference<>(models), models.getParticleMaterial(block.defaultBlockState()));
     }
 
     private Material.Baked material () {
         Resolved current = resolved;
-        if (source != null && current.epoch() != DrawerModelStore.modelEpoch()) {
+        if (source != null && current.epoch().get() != DrawerModelStore.modelEpoch()) {
             current = resolve(source);
             resolved = current;
         }
