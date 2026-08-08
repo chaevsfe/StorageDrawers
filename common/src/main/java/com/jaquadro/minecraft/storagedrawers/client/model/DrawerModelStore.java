@@ -148,8 +148,10 @@ public class DrawerModelStore
     public static final FrameMatSet FramedTrimMaterials = new FrameMatSet()
         .sidePart(DynamicPart.FRAMED_TRIM_SIDE).trimPart(DynamicPart.FRAMED_TRIM_TRIM);
 
+    private record CachedModel (Object epoch, BlockStateModel model) { }
+
     private static final Map<BlockState, BlockStateModel> modelStore = new java.util.concurrent.ConcurrentHashMap<>();
-    private static final Map<BlockState, Map<BlockState, BlockStateModel>> replacementStore = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final Map<BlockState, Map<BlockState, CachedModel>> replacementStore = new java.util.concurrent.ConcurrentHashMap<>();
     private static final Set<BlockState> locationStore = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
     public static final DecorationSet INSTANCE = new DecorationSet();
@@ -297,6 +299,10 @@ public class DrawerModelStore
         replacementStore.clear();
     }
 
+    public static Object modelEpoch () {
+        return Minecraft.getInstance().getModelManager().getBlockStateModelSet();
+    }
+
     static String getVariant() {
         return "";
     }
@@ -406,12 +412,13 @@ public class DrawerModelStore
     }
 
     public static BlockStateModel getReplacementModel(BlockState loc, BlockState replaceLoc) {
-        Map<BlockState, BlockStateModel> store =
+        Map<BlockState, CachedModel> store =
             replacementStore.computeIfAbsent(loc, k -> new java.util.concurrent.ConcurrentHashMap<>());
 
-        BlockStateModel cached = store.get(replaceLoc);
-        if (cached != null)
-            return cached;
+        Object epoch = modelEpoch();
+        CachedModel cached = store.get(replaceLoc);
+        if (cached != null && cached.epoch() == epoch)
+            return cached.model();
 
         BlockStateModel model = getModel(loc);
         BlockStateModel replacementModel = getModel(replaceLoc);
@@ -419,8 +426,8 @@ public class DrawerModelStore
             return model;
 
         BlockStateModel merged = new SpriteReplacementModel(model, replacementModel, ChunkSectionLayer.CUTOUT);
-        BlockStateModel prior = store.putIfAbsent(replaceLoc, merged);
-        return prior != null ? prior : merged;
+        store.put(replaceLoc, new CachedModel(epoch, merged));
+        return merged;
     }
 
     public static BlockStateModel getReplacementModel(String variant, String replaceVariant) {

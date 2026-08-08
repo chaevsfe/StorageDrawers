@@ -24,29 +24,31 @@ import java.util.Map;
 
 public class SpriteReplacementModel extends ParentModel
 {
-    private Material.Baked material;
+    private record Resolved (Object epoch, Material.Baked material) { }
+
+    private final ItemStack source;
+    private volatile Resolved resolved;
     private ChunkSectionLayer layer;
     private Map<BlockStateModelPart, ChameleonBlockModelPart> cache = new HashMap<>();
 
     public SpriteReplacementModel (@NotNull BlockStateModel parent, Material.Baked material) {
         super(parent);
-        this.material = material;
+        this.source = null;
+        this.resolved = new Resolved(null, material);
     }
 
     public SpriteReplacementModel (@NotNull BlockStateModel parent, BlockStateModel replacement, ChunkSectionLayer renderLayer) {
         super(parent);
-        this.material = replacement.particleMaterial();
+        this.source = null;
+        this.resolved = new Resolved(null, replacement.particleMaterial());
         this.layer = renderLayer;
     }
 
     public SpriteReplacementModel (@NotNull BlockStateModel parent, ItemStack stack, ChunkSectionLayer renderLayer) {
         super(parent);
 
-        if (stack != null && stack.getItem() instanceof BlockItem blockItem) {
-            Block block = blockItem.getBlock();
-            BlockStateModelSet models = Minecraft.getInstance().getModelManager().getBlockStateModelSet();
-            material = models.getParticleMaterial(block.defaultBlockState());
-        }
+        this.source = (stack != null && stack.getItem() instanceof BlockItem) ? stack : null;
+        this.resolved = resolve(this.source);
 
         layer = renderLayer;
     }
@@ -55,8 +57,29 @@ public class SpriteReplacementModel extends ParentModel
         this(parent, stack, null);
     }
 
+    private static Resolved resolve (ItemStack stack) {
+        if (stack == null)
+            return new Resolved(null, null);
+
+        BlockStateModelSet models = Minecraft.getInstance().getModelManager().getBlockStateModelSet();
+        Block block = ((BlockItem)stack.getItem()).getBlock();
+
+        return new Resolved(models, models.getParticleMaterial(block.defaultBlockState()));
+    }
+
+    private Material.Baked material () {
+        Resolved current = resolved;
+        if (source != null && current.epoch() != DrawerModelStore.modelEpoch()) {
+            current = resolve(source);
+            resolved = current;
+        }
+
+        return current.material();
+    }
+
     @Override
     public void collectParts (RandomSource randomSource, List<BlockStateModelPart> list) {
+        Material.Baked material = material();
         if (material == null) {
             super.collectParts(randomSource, list);
             return;
@@ -80,6 +103,7 @@ public class SpriteReplacementModel extends ParentModel
 
     @Override
     public Material.Baked particleMaterial () {
+        Material.Baked material = material();
         if (material == null)
             return super.particleMaterial();
 
@@ -88,6 +112,7 @@ public class SpriteReplacementModel extends ParentModel
 
     @Override
     public int materialFlags () {
+        Material.Baked material = material();
         if (material == null)
             return super.materialFlags();
 
