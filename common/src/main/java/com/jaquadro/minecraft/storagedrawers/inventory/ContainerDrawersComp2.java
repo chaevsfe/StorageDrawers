@@ -10,7 +10,7 @@ import java.util.Optional;
 public class ContainerDrawersComp2 extends ContainerDrawers
 {
     private static final int[][] slotCoordinates = new int[][] {
-        { 80, 23 }, { 67, 49 }
+        { 80, 23 }, { 80, 49 }
     };
 
     public ContainerDrawersComp2 (int windowId, Inventory playerInventory, Optional<PositionContent> content) {
