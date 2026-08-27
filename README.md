@@ -8,8 +8,8 @@ Versions
 
 | Minecraft | Branch | Loaders | Latest release |
 |---|---|---|---|
-| 26.2 | [port/26.2](https://github.com/chaevsfe/StorageDrawers/tree/port/26.2) | Fabric, NeoForge | [v19.1.6](https://github.com/chaevsfe/StorageDrawers/releases/tag/v19.1.6) |
-| 26.1.x | [port/26.1](https://github.com/chaevsfe/StorageDrawers/tree/port/26.1) | Fabric, NeoForge | [v19.1.6](https://github.com/chaevsfe/StorageDrawers/releases/tag/v19.1.6) |
+| 26.2 | [port/26.2](https://github.com/chaevsfe/StorageDrawers/tree/port/26.2) | Fabric, NeoForge | [v19.1.7](https://github.com/chaevsfe/StorageDrawers/releases/tag/v19.1.7) |
+| 26.1.x | [port/26.1](https://github.com/chaevsfe/StorageDrawers/tree/port/26.1) | Fabric, NeoForge | [v19.1.7](https://github.com/chaevsfe/StorageDrawers/releases/tag/v19.1.7) |
 
 Also on [Modrinth](https://modrinth.com/mod/storagedrawers-unofficial-fabric-port) and [CurseForge](https://www.curseforge.com/minecraft/mc-mods/storagedrawers-unofficial-port)
 
