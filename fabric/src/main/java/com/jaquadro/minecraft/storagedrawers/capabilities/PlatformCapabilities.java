@@ -37,6 +37,7 @@ public class PlatformCapabilities
             cast(Capabilities.DRAWER_GROUP).register(entity, e -> BlockEntityDrawers.getGroup(e));
             cast(Capabilities.ITEM_REPOSITORY).register(entity, DrawerItemRepository::new);
             cast(Capabilities.ITEM_HANDLER).register(entity, DrawerItemHandler::new);
+            ItemStorage.SIDED.registerForBlockEntity((e, dir) -> DrawerStorageImpl.of(e), entity);
         });
 
         cast(Capabilities.DRAWER_GROUP).register(ModBlockEntities.CONTROLLER.get(), e -> e);
@@ -47,11 +48,6 @@ public class PlatformCapabilities
         cast(Capabilities.ITEM_REPOSITORY).register(ModBlockEntities.CONTROLLER_IO.get(), BlockEntityControllerIO::getItemRepository);
         cast(Capabilities.ITEM_HANDLER).register(ModBlockEntities.CONTROLLER_IO.get(), DrawerItemHandler::new);
 
-        ItemStorage.SIDED.registerForBlockEntity((entity, dir) -> DrawerStorageImpl.of(entity), ModBlockEntities.STANDARD_DRAWERS_1.get());
-        ItemStorage.SIDED.registerForBlockEntity((entity, dir) -> DrawerStorageImpl.of(entity), ModBlockEntities.STANDARD_DRAWERS_2.get());
-        ItemStorage.SIDED.registerForBlockEntity((entity, dir) -> DrawerStorageImpl.of(entity), ModBlockEntities.STANDARD_DRAWERS_4.get());
-        ItemStorage.SIDED.registerForBlockEntity((entity, dir) -> DrawerStorageImpl.of(entity), ModBlockEntities.FRACTIONAL_DRAWERS_2.get());
-        ItemStorage.SIDED.registerForBlockEntity((entity, dir) -> DrawerStorageImpl.of(entity), ModBlockEntities.FRACTIONAL_DRAWERS_3.get());
         ItemStorage.SIDED.registerForBlockEntity((entity, dir) -> DrawerStorageImpl.of(entity), ModBlockEntities.CONTROLLER.get());
         ItemStorage.SIDED.registerForBlockEntity((entity, dir) -> DrawerStorageImpl.of(entity), ModBlockEntities.CONTROLLER_IO.get());
     }
