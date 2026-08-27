@@ -1,0 +1,7 @@
+{
+    "replace": false,
+    "values": [
+        "#storagedrawers:trim",
+        "storagedrawers:framed_trim"
+    ]
+}
