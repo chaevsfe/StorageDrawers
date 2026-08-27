@@ -18,6 +18,7 @@ dependencies {
         exclude(group = "net.fabricmc.fabric-api")
     }
 
+    compileOnly("maven.modrinth:jade:26.2.8+fabric")
 }
 
 loom {
