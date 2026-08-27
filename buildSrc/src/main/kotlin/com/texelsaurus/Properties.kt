@@ -18,6 +18,6 @@ object Properties {
     const val curseProjectId = "1639713"
     const val description = "Interactive compartment storage for your workshops"
     const val license = "MIT"
-    const val distRelease = "beta"
+    const val distRelease = "release"
     const val distGameVersions = "26.2"
 }
