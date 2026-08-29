@@ -942,9 +942,33 @@ public final class ModCommonConfig extends ConfigSpec
             }
         }
 
+        public class TomsStorage extends ConfigSection {
+            public final ChameleonConfig.ConfigEntry<Boolean> enable;
+
+            public TomsStorage (String name, String... comment) {
+                super(name, comment);
+
+                enable = commonConfig.define("enable", true)
+                    .comment("Prevents drawer contents counting twice in storage network terminals if mod is present.");
+            }
+
+            @Override
+            protected void buildEntries () {
+                super.buildEntries();
+                enable.build();
+            }
+
+            @Override
+            public TomsStorage build () {
+                super.build();
+                return this;
+            }
+        }
+
         public Waila waila;
         public FTBChunks ftbChunks;
         public FTBTeams ftbTeams;
+        public TomsStorage tomsStorage;
 
         public Integration () {
             commonConfig.comment("Configuration around integration with third party mods.");
@@ -960,6 +984,9 @@ public final class ModCommonConfig extends ConfigSpec
 
             waila = new Waila("WAILA",
                 "Configuration around the WAILA/HWYLA/Jade family of block inspection mods.").build();
+
+            tomsStorage = new TomsStorage("TomsStorage",
+                "Configuration around the Tom's Simple Storage mod.").build();
 
             commonConfig.popGroup();
         }

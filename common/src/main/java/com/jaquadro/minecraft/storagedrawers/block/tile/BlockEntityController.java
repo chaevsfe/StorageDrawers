@@ -298,6 +298,17 @@ public class BlockEntityController extends BaseBlockEntity implements IDrawerGro
         return record.storage == node;
     }
 
+    public Set<BlockPos> getNetworkBlockPositions (boolean coreOnly) {
+        Set<BlockPos> positions = new HashSet<>();
+        for (Map.Entry<BlockPos, StorageRecord> entry : storage.entrySet()) {
+            if (coreOnly && entry.getValue().storage != null)
+                continue;
+            if (!entry.getKey().equals(getBlockPos()))
+                positions.add(entry.getKey());
+        }
+        return positions;
+    }
+
     public void onEntityLoad () {
         if (ModCommonConfig.INSTANCE.GENERAL.debugTrace.get())
             ModServices.log.info("controller [{}] onEntityLoad", worldPosition);
