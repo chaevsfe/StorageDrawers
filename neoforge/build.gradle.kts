@@ -37,6 +37,7 @@ dependencies {
     // JEI
     // runtimeOnly("mezz.jei:jei-1.21.9-neoforge:25.0.0.2")
     compileOnly("maven.modrinth:jade:26.2.8+neoforge")
+    compileOnly("maven.modrinth:toms-storage:26.2-2.10.1")
 }
 
 tasks.create<TaskPublishCurseForge>("publishCurseForge") {

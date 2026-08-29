@@ -14,6 +14,9 @@ public class LocalIntegrationRegistry
         //    reg.add(new FTBTeamsModule());
         //if (ModList.get().isLoaded("ftbchunks") && ModCommonConfig.INSTANCE.INTEGRATION.ftbChunks.enable.get())
         //    reg.add(new FTBChunksModule());
+
+        if (ModList.get().isLoaded("toms_storage") && ModCommonConfig.INSTANCE.INTEGRATION.tomsStorage.enable.get())
+            TomsStorage.init();
     }
 
     private final IntegrationRegistry registry;

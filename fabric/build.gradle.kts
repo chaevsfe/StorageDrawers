@@ -19,6 +19,7 @@ dependencies {
     }
 
     compileOnly("maven.modrinth:jade:26.2.8+fabric")
+    compileOnly("maven.modrinth:toms-storage:26.2-2.10.1-fabric")
 }
 
 loom {
