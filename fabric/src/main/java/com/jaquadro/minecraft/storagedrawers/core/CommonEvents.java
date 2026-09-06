@@ -1,11 +1,16 @@
 package com.jaquadro.minecraft.storagedrawers.core;
 
+import com.jaquadro.minecraft.storagedrawers.ModConstants;
 import com.jaquadro.minecraft.storagedrawers.block.BlockDrawers;
+import com.jaquadro.minecraft.storagedrawers.block.OffhandMenuOpen;
 import com.jaquadro.minecraft.storagedrawers.block.tile.BlockEntityController;
 import com.jaquadro.minecraft.storagedrawers.block.tile.BlockEntityDrawers;
 import com.texelsaurus.minecraft.chameleon.util.WorldUtils;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerBlockEntityEvents;
+import net.fabricmc.fabric.api.event.Event;
 import net.fabricmc.fabric.api.event.player.AttackBlockCallback;
+import net.fabricmc.fabric.api.event.player.UseBlockCallback;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
@@ -45,8 +50,9 @@ public class CommonEvents
                 drawers.onEntityLoad();
         });
 
-        /*UseBlockCallback.EVENT.register((player, world, hand, hitResult) -> {
-
-        });*/
+        // ahead of every default-phase listener, so another mod's block-use hook cannot swallow the click first
+        Identifier beforeOthers = ModConstants.loc("offhand_menu");
+        UseBlockCallback.EVENT.addPhaseOrdering(beforeOthers, Event.DEFAULT_PHASE);
+        UseBlockCallback.EVENT.register(beforeOthers, OffhandMenuOpen::tryOpen);
     }
 }

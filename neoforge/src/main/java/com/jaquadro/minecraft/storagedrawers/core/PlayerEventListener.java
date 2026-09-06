@@ -1,6 +1,7 @@
 package com.jaquadro.minecraft.storagedrawers.core;
 
 import com.jaquadro.minecraft.storagedrawers.api.storage.attribute.IPortable;
+import com.jaquadro.minecraft.storagedrawers.block.OffhandMenuOpen;
 import com.jaquadro.minecraft.storagedrawers.config.ModCommonConfig;
 import com.jaquadro.minecraft.storagedrawers.item.ItemUpgradeRemote;
 import net.minecraft.server.level.ServerPlayer;
@@ -10,13 +11,26 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.InteractionResult;
+import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.entity.player.ItemEntityPickupEvent;
 import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 
 /** Punishes players holding filled drawers, if enabled in config */
 public class PlayerEventListener
 {
+    // highest priority, so another mod's block-use handler cannot swallow the click first
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
+    public void onRightClickBlock (PlayerInteractEvent.RightClickBlock event) {
+        InteractionResult result = OffhandMenuOpen.tryOpen(event.getEntity(), event.getLevel(), event.getHand(), event.getHitVec());
+        if (result != InteractionResult.PASS) {
+            event.setCanceled(true);
+            event.setCancellationResult(result);
+        }
+    }
+
 
 	private void applyDebuff(Player plr)
 	{
