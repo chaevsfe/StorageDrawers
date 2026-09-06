@@ -11,6 +11,7 @@ import com.jaquadro.minecraft.storagedrawers.block.tile.BlockEntityDrawers;
 import com.jaquadro.minecraft.storagedrawers.capabilities.Capabilities;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.transfer.ResourceHandler;
+import net.neoforged.neoforge.transfer.TransferPreconditions;
 import net.neoforged.neoforge.transfer.item.ItemResource;
 import net.neoforged.neoforge.transfer.item.ItemStackResourceHandler;
 import net.neoforged.neoforge.transfer.transaction.RootCommitJournal;
@@ -96,6 +97,35 @@ public class DrawerGroupResourceHandler implements ResourceHandler<ItemResource>
     @Override
     public int insert (int i, ItemResource itemResource, int amount, TransactionContext transactionContext) {
         return getDrawerWrapper(translateSlot(i)).insert(0, itemResource, amount, transactionContext);
+    }
+
+    // drawers already holding something first, read live: the controller re-sorts its slots only
+    // every 100 ticks, so a slot emptied since then still ranks as populated and would otherwise
+    // capture an item that has a home elsewhere on the network
+    @Override
+    public int insert (ItemResource itemResource, int amount, TransactionContext transactionContext) {
+        TransferPreconditions.checkNonEmptyNonNegative(itemResource, amount);
+
+        int inserted = insertInto(itemResource, amount, transactionContext, false);
+        if (inserted < amount)
+            inserted += insertInto(itemResource, amount - inserted, transactionContext, true);
+
+        return inserted;
+    }
+
+    private int insertInto (ItemResource itemResource, int amount, TransactionContext transactionContext, boolean emptyDrawers) {
+        int inserted = 0;
+        int size = size();
+        for (int i = 0; i < size; i++) {
+            int slot = translateSlot(i);
+            if (group.getDrawer(slot).isEmpty() != emptyDrawers)
+                continue;
+
+            inserted += getDrawerWrapper(slot).insert(0, itemResource, amount - inserted, transactionContext);
+            if (inserted >= amount)
+                break;
+        }
+        return inserted;
     }
 
     @Override

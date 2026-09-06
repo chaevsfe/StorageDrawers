@@ -6,6 +6,8 @@ import com.jaquadro.minecraft.storagedrawers.api.storage.IDrawer;
 import com.jaquadro.minecraft.storagedrawers.api.storage.IDrawerGroup;
 import net.fabricmc.fabric.api.transfer.v1.item.ItemVariant;
 import net.fabricmc.fabric.api.transfer.v1.storage.SlottedStorage;
+import net.fabricmc.fabric.api.transfer.v1.storage.StoragePreconditions;
+import net.fabricmc.fabric.api.transfer.v1.transaction.TransactionContext;
 import net.fabricmc.fabric.api.transfer.v1.storage.base.CombinedStorage;
 import net.fabricmc.fabric.api.transfer.v1.storage.base.SingleSlotStorage;
 import org.jetbrains.annotations.UnmodifiableView;
@@ -51,6 +53,35 @@ public class DrawerStorageImpl extends CombinedStorage<ItemVariant, SingleSlotSt
 
         for (int i = 0; i < slots.length; i++)
             backingList.get(i).updateSlot(slots[i]);
+    }
+
+    // drawers already holding something first, read live: the controller re-sorts its slots only
+    // every 100 ticks, so a slot emptied since then still ranks as populated and would otherwise
+    // capture an item that has a home elsewhere on the network
+    @Override
+    public long insert (ItemVariant resource, long maxAmount, TransactionContext transaction) {
+        StoragePreconditions.notBlankNotNegative(resource, maxAmount);
+
+        long amount = insertInto(resource, maxAmount, transaction, false);
+        if (amount < maxAmount)
+            amount += insertInto(resource, maxAmount - amount, transaction, true);
+
+        return amount;
+    }
+
+    private long insertInto (ItemVariant resource, long maxAmount, TransactionContext transaction, boolean emptyDrawers) {
+        long amount = 0;
+        int count = parts.size();
+        for (int i = 0; i < count; i++) {
+            DrawerStackStorage part = backingList.get(i);
+            if (getDrawer(part.slot).isEmpty() != emptyDrawers)
+                continue;
+
+            amount += part.insert(resource, maxAmount - amount, transaction);
+            if (amount >= maxAmount)
+                break;
+        }
+        return amount;
     }
 
     @Override
